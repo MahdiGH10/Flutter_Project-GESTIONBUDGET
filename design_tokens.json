@@ -1,0 +1,370 @@
+{
+  "project": {
+    "name": "DEVMOB - GestionBudgetaire",
+    "version": "1.0.0",
+    "platform": "Mobile (Flutter)",
+    "screenSize": {
+      "width": 375,
+      "height": 812
+    }
+  },
+  "colors": {
+    "primary": {
+      "900": "#1F2C37",
+      "800": "#2A3B47",
+      "700": "#354A56",
+      "100": "#F7F9FC",
+      "50": "#FAFBFC"
+    },
+    "success": {
+      "500": "#4CD964",
+      "400": "#6EE084",
+      "100": "#E8F9EC",
+      "50": "#F3FDF5"
+    },
+    "danger": {
+      "500": "#FF3B30",
+      "400": "#FF6B63",
+      "100": "#FFE8E7",
+      "50": "#FFF3F2"
+    },
+    "neutral": {
+      "900": "#1F2C37",
+      "700": "#3D4F5F",
+      "500": "#78828A",
+      "400": "#A5B0B9",
+      "300": "#C5CCD2",
+      "200": "#E8ECF0",
+      "100": "#F7F9FC",
+      "0": "#FFFFFF"
+    },
+    "category": {
+      "food": "#FF6B6B",
+      "transport": "#4ECDC4",
+      "shopping": "#45B7D1",
+      "entertainment": "#96CEB4",
+      "health": "#FFEAA7",
+      "housing": "#DDA0DD",
+      "utilities": "#98D8C8",
+      "education": "#F7DC6F"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "primary": "Urbanist",
+      "fallback": "sans-serif"
+    },
+    "styles": {
+      "h1Bold": {
+        "fontSize": 32,
+        "fontWeight": 700,
+        "lineHeight": 40,
+        "letterSpacing": -0.5
+      },
+      "h2Bold": {
+        "fontSize": 24,
+        "fontWeight": 700,
+        "lineHeight": 32,
+        "letterSpacing": -0.3
+      },
+      "h3SemiBold": {
+        "fontSize": 20,
+        "fontWeight": 600,
+        "lineHeight": 28,
+        "letterSpacing": -0.2
+      },
+      "bodyRegular": {
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 24,
+        "letterSpacing": 0
+      },
+      "bodyMedium": {
+        "fontSize": 16,
+        "fontWeight": 500,
+        "lineHeight": 24,
+        "letterSpacing": 0
+      },
+      "bodySemiBold": {
+        "fontSize": 16,
+        "fontWeight": 600,
+        "lineHeight": 24,
+        "letterSpacing": 0
+      },
+      "captionRegular": {
+        "fontSize": 14,
+        "fontWeight": 400,
+        "lineHeight": 20,
+        "letterSpacing": 0
+      },
+      "captionMedium": {
+        "fontSize": 14,
+        "fontWeight": 500,
+        "lineHeight": 20,
+        "letterSpacing": 0
+      },
+      "smallMedium": {
+        "fontSize": 12,
+        "fontWeight": 500,
+        "lineHeight": 16,
+        "letterSpacing": 0.2
+      },
+      "balanceDisplay": {
+        "fontSize": 42,
+        "fontWeight": 800,
+        "lineHeight": 48,
+        "letterSpacing": -1
+      },
+      "amountLarge": {
+        "fontSize": 48,
+        "fontWeight": 800,
+        "lineHeight": 56,
+        "letterSpacing": -1
+      }
+    }
+  },
+  "spacing": {
+    "xs": 4,
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 32,
+    "2xl": 48,
+    "3xl": 64
+  },
+  "borderRadius": {
+    "sm": 12,
+    "md": 16,
+    "lg": 20,
+    "xl": 28,
+    "full": 9999
+  },
+  "shadows": {
+    "sm": {
+      "x": 0,
+      "y": 2,
+      "blur": 8,
+      "spread": 0,
+      "color": "#1F2C37",
+      "opacity": 0.06
+    },
+    "md": {
+      "x": 0,
+      "y": 4,
+      "blur": 20,
+      "spread": 0,
+      "color": "#1F2C37",
+      "opacity": 0.08
+    },
+    "lg": {
+      "x": 0,
+      "y": 8,
+      "blur": 30,
+      "spread": 0,
+      "color": "#1F2C37",
+      "opacity": 0.12
+    },
+    "xl": {
+      "x": 0,
+      "y": 25,
+      "blur": 80,
+      "spread": 0,
+      "color": "#1F2C37",
+      "opacity": 0.15
+    }
+  },
+  "components": {
+    "button": {
+      "primary": {
+        "height": 56,
+        "paddingHorizontal": 32,
+        "borderRadius": 16,
+        "background": "#1F2C37",
+        "textColor": "#FFFFFF",
+        "fontSize": 16,
+        "fontWeight": 600
+      },
+      "secondary": {
+        "height": 56,
+        "paddingHorizontal": 32,
+        "borderRadius": 16,
+        "background": "#F7F9FC",
+        "textColor": "#1F2C37",
+        "fontSize": 16,
+        "fontWeight": 600
+      },
+      "fab": {
+        "size": 56,
+        "borderRadius": 28,
+        "background": "#1F2C37",
+        "iconColor": "#FFFFFF",
+        "shadow": "lg"
+      }
+    },
+    "input": {
+      "height": 56,
+      "paddingHorizontal": 20,
+      "borderRadius": 16,
+      "borderWidth": 2,
+      "borderColor": "#E8ECF0",
+      "background": "#FFFFFF",
+      "textColor": "#1F2C37",
+      "placeholderColor": "#A5B0B9",
+      "fontSize": 16
+    },
+    "card": {
+      "transaction": {
+        "height": 72,
+        "padding": 16,
+        "borderRadius": 16,
+        "background": "#FFFFFF",
+        "shadow": "sm"
+      },
+      "balance": {
+        "height": 180,
+        "padding": 32,
+        "borderRadius": 28,
+        "background": "#1F2C37"
+      },
+      "category": {
+        "width": 156,
+        "height": 120,
+        "padding": 20,
+        "borderRadius": 20,
+        "background": "#FFFFFF",
+        "shadow": "sm"
+      }
+    },
+    "icon": {
+      "transaction": {
+        "size": 48,
+        "borderRadius": 14
+      },
+      "category": {
+        "size": 56,
+        "borderRadius": 18
+      },
+      "nav": {
+        "size": 24
+      }
+    },
+    "progressBar": {
+      "height": 8,
+      "borderRadius": 4,
+      "trackColor": "#E8ECF0"
+    },
+    "toggle": {
+      "width": 56,
+      "height": 32,
+      "borderRadius": 16,
+      "thumbSize": 24,
+      "trackColorOff": "#E8ECF0",
+      "trackColorOn": "#4CD964"
+    },
+    "bottomNav": {
+      "height": 84,
+      "background": "#FFFFFF",
+      "borderTop": "#E8ECF0"
+    }
+  },
+  "screens": [
+    {
+      "id": 1,
+      "name": "Login",
+      "background": "gradient",
+      "gradientColors": ["#1F2C37", "#2A3B47", "#1F2C37"],
+      "gradientAngle": 135
+    },
+    {
+      "id": 2,
+      "name": "Register",
+      "background": "#FFFFFF"
+    },
+    {
+      "id": 3,
+      "name": "Dashboard",
+      "background": "#F7F9FC"
+    },
+    {
+      "id": 4,
+      "name": "Transactions",
+      "background": "#F7F9FC"
+    },
+    {
+      "id": 5,
+      "name": "AddTransaction",
+      "background": "#FFFFFF"
+    },
+    {
+      "id": 6,
+      "name": "Categories",
+      "background": "#F7F9FC"
+    },
+    {
+      "id": 7,
+      "name": "Statistics",
+      "background": "#F7F9FC"
+    },
+    {
+      "id": 8,
+      "name": "BudgetGoals",
+      "background": "#F7F9FC"
+    },
+    {
+      "id": 9,
+      "name": "Profile",
+      "background": "#F7F9FC"
+    }
+  ],
+  "icons": {
+    "navigation": {
+      "home": "Home",
+      "transactions": "Wallet",
+      "statistics": "PieChart",
+      "profile": "User"
+    },
+    "actions": {
+      "back": "ArrowLeft",
+      "close": "X",
+      "add": "Plus",
+      "edit": "Edit3",
+      "search": "Search",
+      "filter": "Filter",
+      "more": "MoreHorizontal",
+      "settings": "Settings",
+      "notification": "Bell"
+    },
+    "transactions": {
+      "income": "ArrowDownRight",
+      "expense": "ArrowUpRight",
+      "salary": "Briefcase",
+      "food": "Utensils",
+      "transport": "Car",
+      "shopping": "ShoppingBag",
+      "entertainment": "Zap",
+      "health": "Heart",
+      "housing": "Home",
+      "utilities": "Zap",
+      "gift": "Gift",
+      "trendingUp": "TrendingUp",
+      "trendingDown": "TrendingDown"
+    },
+    "auth": {
+      "email": "Mail",
+      "password": "Lock",
+      "eye": "Eye",
+      "eyeOff": "EyeOff",
+      "logout": "LogOut"
+    },
+    "misc": {
+      "calendar": "Calendar",
+      "creditCard": "CreditCard",
+      "target": "Target",
+      "check": "Check",
+      "globe": "Globe",
+      "moon": "Moon",
+      "help": "HelpCircle",
+      "shield": "Shield"
+    }
+  }
+}
