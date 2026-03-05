@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "717720242791",
+    "project_id": "gestion-budgetaire-app-c4919",
+    "storage_bucket": "gestion-budgetaire-app-c4919.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:717720242791:android:f745c424b350efe51ce2c2",
+        "android_client_info": {
+          "package_name": "com.devmob.gestion_budgetaire"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyLj_VXoN7D0J1qW1dQFhgbyeSrHTTMCs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -38,22 +38,22 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // TODO: Replace these placeholder values by running: flutterfire configure
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: 'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
+    apiKey: 'AIzaSyAOJvwnVEorXkFom_8wWy8C_bGD72HBHvw',
+    appId: '1:717720242791:web:a60f99f582b60e931ce2c2',
+    messagingSenderId: '717720242791',
+    projectId: 'gestion-budgetaire-app-c4919',
+    authDomain: 'gestion-budgetaire-app-c4919.firebaseapp.com',
+    storageBucket: 'gestion-budgetaire-app-c4919.firebasestorage.app',
+    measurementId: 'G-F628Y83F55',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: 'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
+    apiKey: 'AIzaSyDyLj_VXoN7D0J1qW1dQFhgbyeSrHTTMCs',
+    appId: '1:717720242791:android:f745c424b350efe51ce2c2',
+    messagingSenderId: '717720242791',
+    projectId: 'gestion-budgetaire-app-c4919',
+    storageBucket: 'gestion-budgetaire-app-c4919.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
