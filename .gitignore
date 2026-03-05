@@ -1,0 +1,42 @@
+# VS Code
+.vscode/
+
+# Flutter/Dart
+flutter_app/build/
+flutter_app/.dart_tool/
+flutter_app/.packages
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/pubspec.lock
+*.iml
+
+# Android
+flutter_app/android/local.properties
+flutter_app/android/.gradle/
+flutter_app/android/app/build/
+
+# iOS
+flutter_app/ios/Pods/
+flutter_app/ios/.symlinks/
+flutter_app/ios/Flutter/ephemeral/
+
+# macOS
+flutter_app/macos/Flutter/ephemeral/
+
+# Windows
+flutter_app/windows/flutter/ephemeral/
+
+# Linux
+flutter_app/linux/flutter/ephemeral/
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+Thumbs.db
