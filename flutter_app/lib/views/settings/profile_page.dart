@@ -34,6 +34,12 @@ class _ProfilePageState extends State<ProfilePage>
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final user = authProvider.currentUser;
+    final userName = user?.fullName ?? 'User';
+    final userEmail = user?.email ?? '';
+    final userInitials = user?.initials ?? '?';
+
     final menuItems = [
       _MenuItem(
         icon: Icons.person_outline,
@@ -130,7 +136,7 @@ class _ProfilePageState extends State<ProfilePage>
                         ),
                         child: Center(
                           child: Text(
-                            'AJ',
+                            userInitials,
                             style: AppTheme.h1Bold.copyWith(
                               color: Colors.white,
                               fontSize: 32,
@@ -158,10 +164,10 @@ class _ProfilePageState extends State<ProfilePage>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('Alex Johnson', style: AppTheme.h3SemiBold),
+                  Text(userName, style: AppTheme.h3SemiBold),
                   const SizedBox(height: 4),
                   Text(
-                    'alex.johnson@email.com',
+                    userEmail,
                     style: AppTheme.captionRegular,
                   ),
                   const SizedBox(height: 20),

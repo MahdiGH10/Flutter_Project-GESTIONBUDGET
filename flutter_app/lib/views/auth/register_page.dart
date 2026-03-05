@@ -43,17 +43,39 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   void _handleRegister() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Veuillez remplir tous les champs'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Le mot de passe doit contenir au moins 6 caractères'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
     final auth = context.read<AuthProvider>();
     final success = await auth.register(
-      fullName: _nameController.text.isEmpty
-          ? 'Alex Johnson'
-          : _nameController.text,
-      email: _emailController.text.isEmpty
-          ? 'alex@example.com'
-          : _emailController.text,
-      password: _passwordController.text.isEmpty
-          ? 'password'
-          : _passwordController.text,
+      fullName: name,
+      email: email,
+      password: password,
       currency: _selectedCurrency.split(' - ').first,
     );
     if (success && mounted) {
@@ -67,6 +89,16 @@ class _RegisterPageState extends State<RegisterPage>
         ),
         (_) => false,
       );
+    } else if (mounted && auth.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.error!),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      auth.clearError();
     }
   }
 

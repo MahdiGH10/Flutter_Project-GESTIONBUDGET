@@ -51,13 +51,23 @@ class _LoginPageState extends State<LoginPage>
   }
 
   void _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Veuillez remplir tous les champs'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
     final auth = context.read<AuthProvider>();
-    final success = await auth.login(
-      _emailController.text.isEmpty
-          ? 'alex@example.com'
-          : _emailController.text,
-      _passwordController.text.isEmpty ? 'password' : _passwordController.text,
-    );
+    final success = await auth.login(email, password);
     if (success && mounted) {
       Navigator.pushReplacement(
         context,
@@ -68,6 +78,16 @@ class _LoginPageState extends State<LoginPage>
           transitionDuration: const Duration(milliseconds: 500),
         ),
       );
+    } else if (mounted && auth.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.error!),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      auth.clearError();
     }
   }
 
@@ -230,7 +250,32 @@ class _LoginPageState extends State<LoginPage>
 
                           // Forgot password
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              final email = _emailController.text.trim();
+                              if (email.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Entrez votre email d\'abord'),
+                                    backgroundColor: Colors.orange.shade400,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                );
+                                return;
+                              }
+                              context.read<AuthProvider>().resetPassword(email).then((_) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text('Email de réinitialisation envoyé !'),
+                                      backgroundColor: AppTheme.success500,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  );
+                                }
+                              });
+                            },
                             child: Text(
                               'Forgot Password?',
                               style: AppTheme.captionRegular.copyWith(

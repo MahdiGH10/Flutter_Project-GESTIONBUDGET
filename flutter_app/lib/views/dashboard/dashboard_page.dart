@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/shared_widgets.dart';
@@ -39,6 +40,10 @@ class _DashboardPageState extends State<DashboardPage>
     return Consumer<TransactionProvider>(
       builder: (context, txnProvider, _) {
         final recentTxns = txnProvider.transactions.take(5).toList();
+        final authProvider = context.watch<AuthProvider>();
+        final user = authProvider.currentUser;
+        final userName = user?.fullName ?? 'User';
+        final userInitials = user?.initials ?? '?';
 
         return CustomScrollView(
           slivers: [
@@ -58,7 +63,7 @@ class _DashboardPageState extends State<DashboardPage>
                       ),
                       child: Center(
                         child: Text(
-                          'AJ',
+                          userInitials,
                           style: AppTheme.bodySemiBold.copyWith(
                             color: Colors.white,
                             fontSize: 14,
@@ -77,7 +82,7 @@ class _DashboardPageState extends State<DashboardPage>
                           ),
                         ),
                         Text(
-                          'Alex Johnson',
+                          userName,
                           style: AppTheme.bodySemiBold.copyWith(fontSize: 14),
                         ),
                       ],
