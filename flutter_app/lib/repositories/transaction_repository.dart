@@ -79,14 +79,14 @@ class TransactionRepository {
     final all = await getAll(userId: userId);
     return all
         .where((t) => t.isIncome)
-        .fold(0.0, (sum, t) => sum + t.amount);
+      .fold<double>(0.0, (double sum, t) => sum + t.amount);
   }
 
   Future<double> totalExpense({required String userId}) async {
     final all = await getAll(userId: userId);
     return all
         .where((t) => t.isExpense)
-        .fold(0.0, (sum, t) => sum + t.amount);
+      .fold<double>(0.0, (double sum, t) => sum + t.amount);
   }
 
   Future<double> balance({required String userId}) async {
@@ -113,7 +113,7 @@ class TransactionRepository {
     final all = await getAll(userId: userId);
     return all
         .where((t) => t.isExpense && t.categoryId == categoryId)
-        .fold(0.0, (sum, t) => sum + t.amount);
+        .fold<double>(0.0, (double sum, t) => sum + t.amount);
   }
 
   Future<List<MapEntry<String, double>>> getDailyExpenses(
@@ -133,7 +133,7 @@ class TransactionRepository {
               t.date.year == day.year &&
               t.date.month == day.month &&
               t.date.day == day.day)
-          .fold(0.0, (sum, t) => sum + t.amount);
+          .fold<double>(0.0, (double sum, t) => sum + t.amount);
       result.add(MapEntry(dayNames[day.weekday - 1], total));
     }
     return result;

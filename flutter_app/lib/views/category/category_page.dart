@@ -17,6 +17,91 @@ class CategoryPage extends StatefulWidget {
 class _CategoryPageState extends State<CategoryPage> {
   String _activeTab = 'expense';
 
+  Future<void> _showCustomCategoryActions(
+    BuildContext context,
+    Category category,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.neutral300,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.edit, color: AppTheme.primary900),
+                  title: const Text('Edit category'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CreateCategoryPage(
+                          initialCategory: category,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: AppTheme.danger500),
+                  title: const Text('Delete category'),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogContext) {
+                        return AlertDialog(
+                          title: const Text('Delete category?'),
+                          content: Text(
+                            'This will remove "${category.name}" from your custom categories.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dialogContext, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(dialogContext, true),
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(color: AppTheme.danger500),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+
+                    if (confirmed == true && context.mounted) {
+                      await context.read<CategoryProvider>().deleteCategory(
+                        category.id,
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<TransactionProvider, CategoryProvider>(
@@ -144,6 +229,7 @@ class _CategoryPageState extends State<CategoryPage> {
                   delegate: SliverChildBuilderDelegate((context, index) {
                     final cat = categories[index];
                     final spent = txnProvider.getSpentForCategory(cat.id);
+                    final isCustom = categoryProvider.isCustomCategory(cat.id);
 
                     return TweenAnimationBuilder<double>(
                       tween: Tween(begin: 0, end: 1),
@@ -155,7 +241,13 @@ class _CategoryPageState extends State<CategoryPage> {
                           child: Opacity(opacity: value, child: child),
                         );
                       },
-                      child: CategoryCard(category: cat, spent: spent),
+                      child: CategoryCard(
+                        category: cat,
+                        spent: spent,
+                        onTap: isCustom
+                            ? () => _showCustomCategoryActions(context, cat)
+                            : null,
+                      ),
                     );
                   }, childCount: categories.length),
                 ),

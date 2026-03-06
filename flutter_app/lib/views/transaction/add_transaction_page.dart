@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/category_model.dart';
+import '../../providers/category_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../theme/app_theme.dart';
 
@@ -26,9 +27,9 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   DateTime _selectedDate = DateTime.now();
   late AnimationController _animController;
 
-  List<Category> get _categories => _type == CategoryType.income
-      ? DefaultCategories.incomes
-      : DefaultCategories.expenses;
+  List<Category> _categoriesFromProvider(BuildContext context) {
+    return context.read<CategoryProvider>().categoriesByType(_type);
+  }
 
   @override
   void initState() {
@@ -71,7 +72,15 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   Future<void> _handleSubmit() async {
     final amount = double.tryParse(_amount);
-    if (amount == null || amount <= 0 || _selectedCategoryId == null) {
+    final categories = _categoriesFromProvider(context);
+    Category? selectedCategory;
+    try {
+      selectedCategory = categories.firstWhere((c) => c.id == _selectedCategoryId);
+    } catch (_) {
+      selectedCategory = null;
+    }
+
+    if (amount == null || amount <= 0 || selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -89,9 +98,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       return;
     }
 
-    final cat = _categories.firstWhere((c) => c.id == _selectedCategoryId);
     await context.read<TransactionProvider>().addTransaction(
-      title: cat.name,
+      title: selectedCategory.name,
       amount: amount,
       date: _selectedDate,
       categoryId: _selectedCategoryId!,
@@ -106,6 +114,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   @override
   Widget build(BuildContext context) {
+    final categories = context.watch<CategoryProvider>().categoriesByType(_type);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -242,7 +252,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                             Wrap(
                               spacing: 12,
                               runSpacing: 12,
-                              children: _categories.map((cat) {
+                              children: categories.map((cat) {
                                 final isSelected =
                                     _selectedCategoryId == cat.id;
                                 return GestureDetector(

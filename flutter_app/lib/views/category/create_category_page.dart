@@ -6,7 +6,9 @@ import '../../providers/category_provider.dart';
 import '../../theme/app_theme.dart';
 
 class CreateCategoryPage extends StatefulWidget {
-  const CreateCategoryPage({super.key});
+  final Category? initialCategory;
+
+  const CreateCategoryPage({super.key, this.initialCategory});
 
   @override
   State<CreateCategoryPage> createState() => _CreateCategoryPageState();
@@ -52,6 +54,14 @@ class _CreateCategoryPageState extends State<CreateCategoryPage>
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialCategory;
+    if (initial != null) {
+      _nameController.text = initial.name;
+      _type = initial.type;
+      _selectedIcon = initial.icon;
+      _selectedColor = initial.color;
+    }
+
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -81,13 +91,19 @@ class _CreateCategoryPageState extends State<CreateCategoryPage>
     }
 
     final category = Category(
-      id: _uuid.v4(),
+      id: widget.initialCategory?.id ?? _uuid.v4(),
       name: _nameController.text.trim(),
       icon: _selectedIcon,
       color: _selectedColor,
       type: _type,
     );
-    await context.read<CategoryProvider>().addCategory(category);
+
+    if (widget.initialCategory == null) {
+      await context.read<CategoryProvider>().addCategory(category);
+    } else {
+      await context.read<CategoryProvider>().updateCategory(category);
+    }
+
     if (mounted) Navigator.pop(context);
   }
 
@@ -119,7 +135,9 @@ class _CreateCategoryPageState extends State<CreateCategoryPage>
                     ),
                     Expanded(
                       child: Text(
-                        'New Category',
+                        widget.initialCategory == null
+                          ? 'New Category'
+                          : 'Edit Category',
                         textAlign: TextAlign.center,
                         style: AppTheme.h3SemiBold.copyWith(fontSize: 18),
                       ),
@@ -259,7 +277,11 @@ class _CreateCategoryPageState extends State<CreateCategoryPage>
                               ),
                             ),
                           ),
-                          child: const Text('Create Category'),
+                          child: Text(
+                            widget.initialCategory == null
+                                ? 'Create Category'
+                                : 'Save Changes',
+                          ),
                         ),
                       ),
                     ],

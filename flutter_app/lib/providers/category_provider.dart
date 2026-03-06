@@ -11,6 +11,10 @@ class CategoryProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   List<Category> get customCategories => List.unmodifiable(_customCategories);
 
+  bool isCustomCategory(String categoryId) {
+    return _customCategories.any((c) => c.id == categoryId);
+  }
+
   List<Category> categoriesByType(CategoryType type) {
     final defaults = DefaultCategories.all.where((c) => c.type == type);
     final custom = _customCategories.where((c) => c.type == type);
@@ -49,5 +53,15 @@ class CategoryProvider extends ChangeNotifier {
     await _repo.delete(id);
     _customCategories.removeWhere((c) => c.id == id);
     notifyListeners();
+  }
+
+  Future<void> updateCategory(Category category) async {
+    if (_userId == null) return;
+    await _repo.update(category, userId: _userId!);
+    final index = _customCategories.indexWhere((c) => c.id == category.id);
+    if (index != -1) {
+      _customCategories[index] = category;
+      notifyListeners();
+    }
   }
 }
