@@ -9,6 +9,7 @@ import '../../providers/transaction_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/bar_chart_widget.dart';
 import '../../widgets/pie_chart_widget.dart';
+import '../../widgets/transaction_table_widget.dart';
 import '../../widgets/shared_widgets.dart';
 
 class ReportPage extends StatefulWidget {
@@ -253,7 +254,10 @@ class _ReportPageState extends State<ReportPage>
               SliverToBoxAdapter(
                 child: _ChartCard(
                   title: 'Transactions Table',
-                  child: _buildDataTable(filteredTxns, categoryLookup),
+                  child: TransactionTableWidget(
+                    transactions: filteredTxns,
+                    categoryLookup: categoryLookup,
+                  ),
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -317,46 +321,6 @@ class _ReportPageState extends State<ReportPage>
     return transactions.fold<double>(0.0, (sum, t) => sum + t.amount);
   }
 
-  Widget _buildDataTable(
-    List<Transaction> txns,
-    Map<String, Category> categoryLookup,
-  ) {
-    final rows = txns.take(12).toList();
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingTextStyle: AppTheme.captionMedium.copyWith(color: AppTheme.neutral900),
-        dataTextStyle: AppTheme.smallMedium.copyWith(color: AppTheme.neutral900),
-        columns: const [
-          DataColumn(label: Text('Date')),
-          DataColumn(label: Text('Type')),
-          DataColumn(label: Text('Category')),
-          DataColumn(label: Text('Amount')),
-        ],
-        rows: rows
-            .map(
-              (t) => DataRow(
-                cells: [
-                  DataCell(Text(DateFormat('dd/MM').format(t.date))),
-                  DataCell(
-                    Text(
-                      t.isIncome ? 'Income' : 'Expense',
-                      style: TextStyle(
-                        color: t.isIncome ? AppTheme.success500 : AppTheme.danger500,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  DataCell(Text(categoryLookup[t.categoryId]?.name ?? t.categoryId)),
-                  DataCell(Text('${t.amount.toStringAsFixed(2)} TND')),
-                ],
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
 }
 
 class _StatCard extends StatelessWidget {
