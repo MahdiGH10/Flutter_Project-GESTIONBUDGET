@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../models/category_model.dart';
 import '../transaction/add_transaction_page.dart';
+import '../transaction/transaction_list_page.dart';
 import '../settings/budget_goal_page.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -216,7 +217,13 @@ class _DashboardPageState extends State<DashboardPage>
                       style: AppTheme.h3SemiBold.copyWith(fontSize: 18),
                     ),
                     TextButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const TransactionListPage(),
+                          ),
+                        );
+                      },
                       child: Text(
                         'View All',
                         style: AppTheme.captionMedium.copyWith(

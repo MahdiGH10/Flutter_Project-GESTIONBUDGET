@@ -26,8 +26,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
             ? allTxns.where((t) => t.isIncome).toList()
             : allTxns.where((t) => t.isExpense).toList();
 
-        return CustomScrollView(
-          slivers: [
+        return RefreshIndicator(
+          onRefresh: txnProvider.refresh,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
             // Header
             SliverToBoxAdapter(
               child: Container(
@@ -281,7 +284,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                   }, childCount: filteredTxns.length),
                 ),
               ),
-          ],
+            ],
+          ),
         );
       },
     );

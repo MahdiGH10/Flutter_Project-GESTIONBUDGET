@@ -25,6 +25,16 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reload transactions from SQLite for the current user.
+  Future<void> refresh() async {
+    if (_userId == null) return;
+    _isLoading = true;
+    notifyListeners();
+    await _service.loadForUser(_userId!);
+    _isLoading = false;
+    notifyListeners();
+  }
+
   /// Clear data on logout.
   void clear() {
     _userId = null;
