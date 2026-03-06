@@ -1,0 +1,10 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Firebase Login & Configure",
+			"type": "shell",
+			"command": "$env:Path += ';' + $env:LOCALAPPDATA + '\\Pub\\Cache\\bin'; firebase login; cd c:\\Users\\Mahdi\\Desktop\\figma\\flutter_app; flutterfire configure --platforms=android,web"
+		}
+	]
+}
