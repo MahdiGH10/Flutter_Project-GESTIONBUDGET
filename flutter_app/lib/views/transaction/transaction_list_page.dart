@@ -273,8 +273,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: TransactionTile(
                         transaction: filteredTxns[index],
-                        onDismissed: () {
-                          txnProvider.deleteTransaction(filteredTxns[index].id);
+                        onDismissed: () async {
+                          await txnProvider.deleteTransaction(filteredTxns[index].id);
                         },
                       ),
                     );

@@ -1,131 +1,37 @@
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
+import '../repositories/transaction_repository.dart';
 import 'package:uuid/uuid.dart';
 
+/// Service layer for transactions. Delegates persistence to
+/// [TransactionRepository] and keeps an in-memory cache for fast reads.
 class TransactionService {
-  final List<Transaction> _transactions = [];
+  final TransactionRepository _repo = TransactionRepository();
   final _uuid = const Uuid();
 
-  TransactionService() {
-    _loadSampleData();
-  }
+  List<Transaction> _transactions = [];
 
   List<Transaction> get transactions => List.unmodifiable(_transactions);
 
-  void _loadSampleData() {
-    final now = DateTime.now();
-    _transactions.addAll([
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Monthly Salary',
-        amount: 2500.00,
-        date: now.subtract(const Duration(days: 1)),
-        categoryId: 'salary',
-        type: CategoryType.income,
-        description: 'January salary',
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Freelance Project',
-        amount: 450.00,
-        date: now.subtract(const Duration(days: 5)),
-        categoryId: 'freelance',
-        type: CategoryType.income,
-        description: 'Website redesign',
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Grocery Shopping',
-        amount: 125.50,
-        date: now,
-        categoryId: 'food',
-        type: CategoryType.expense,
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Uber Ride',
-        amount: 24.00,
-        date: now.subtract(const Duration(days: 1)),
-        categoryId: 'transport',
-        type: CategoryType.expense,
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Netflix Subscription',
-        amount: 15.99,
-        date: now.subtract(const Duration(days: 2)),
-        categoryId: 'entertainment',
-        type: CategoryType.expense,
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Restaurant',
-        amount: 85.00,
-        date: now.subtract(const Duration(days: 3)),
-        categoryId: 'food',
-        type: CategoryType.expense,
-        description: 'Dinner with friends',
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Gas Station',
-        amount: 60.00,
-        date: now.subtract(const Duration(days: 4)),
-        categoryId: 'transport',
-        type: CategoryType.expense,
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Electric Bill',
-        amount: 120.00,
-        date: now.subtract(const Duration(days: 6)),
-        categoryId: 'utilities',
-        type: CategoryType.expense,
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'New Shoes',
-        amount: 189.00,
-        date: now.subtract(const Duration(days: 7)),
-        categoryId: 'shopping',
-        type: CategoryType.expense,
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Gym Membership',
-        amount: 45.00,
-        date: now.subtract(const Duration(days: 8)),
-        categoryId: 'health',
-        type: CategoryType.expense,
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Rent Payment',
-        amount: 800.00,
-        date: now.subtract(const Duration(days: 1)),
-        categoryId: 'housing',
-        type: CategoryType.expense,
-      ),
-      Transaction(
-        id: _uuid.v4(),
-        title: 'Online Course',
-        amount: 49.99,
-        date: now.subtract(const Duration(days: 10)),
-        categoryId: 'education',
-        type: CategoryType.expense,
-      ),
-    ]);
-    _transactions.sort((a, b) => b.date.compareTo(a.date));
+  /// Load all transactions for the given user from SQLite.
+  Future<void> loadForUser(String userId) async {
+    _transactions = await _repo.getAll(userId: userId);
   }
 
-  Transaction addTransaction({
+  /// Clear the in-memory cache (e.g. on logout).
+  void clear() {
+    _transactions = [];
+  }
+
+  Future<Transaction> addTransaction({
+    required String userId,
     required String title,
     required double amount,
     required DateTime date,
     required String categoryId,
     required CategoryType type,
     String? description,
-  }) {
+  }) async {
     final transaction = Transaction(
       id: _uuid.v4(),
       title: title,
@@ -135,22 +41,23 @@ class TransactionService {
       type: type,
       description: description,
     );
+    await _repo.insert(transaction, userId: userId);
     _transactions.insert(0, transaction);
     _transactions.sort((a, b) => b.date.compareTo(a.date));
     return transaction;
   }
 
-  void deleteTransaction(String id) {
+  Future<void> deleteTransaction(String id, {required String userId}) async {
+    await _repo.delete(id);
     _transactions.removeWhere((t) => t.id == id);
   }
 
-  double get totalIncome => _transactions
-      .where((t) => t.isIncome)
-      .fold(0, (sum, t) => sum + t.amount);
+  // ── Computed values (from cache) ────────────────────────────
+  double get totalIncome =>
+      _transactions.where((t) => t.isIncome).fold(0, (sum, t) => sum + t.amount);
 
-  double get totalExpense => _transactions
-      .where((t) => t.isExpense)
-      .fold(0, (sum, t) => sum + t.amount);
+  double get totalExpense =>
+      _transactions.where((t) => t.isExpense).fold(0, (sum, t) => sum + t.amount);
 
   double get balance => totalIncome - totalExpense;
 
@@ -182,6 +89,7 @@ class TransactionService {
   List<MapEntry<String, double>> getDailyExpenses(int days) {
     final now = DateTime.now();
     final result = <MapEntry<String, double>>[];
+    final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     for (int i = days - 1; i >= 0; i--) {
       final day = now.subtract(Duration(days: i));
       final total = _transactions
@@ -193,7 +101,6 @@ class TransactionService {
                 t.date.day == day.day,
           )
           .fold(0.0, (sum, t) => sum + t.amount);
-      final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       result.add(MapEntry(dayNames[day.weekday - 1], total));
     }
     return result;

@@ -47,7 +47,8 @@ class GestionBudgetaireApp extends StatelessWidget {
   }
 }
 
-/// Checks if user is already logged in via Firebase and routes accordingly
+/// Checks if user is already logged in via Firebase and routes accordingly.
+/// After auth, loads all user-scoped data from SQLite.
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
@@ -56,13 +57,25 @@ class _AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<_AuthGate> {
+  bool _dataLoaded = false;
+
   @override
   void initState() {
     super.initState();
-    // Initialize auth provider to check existing session
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().initialize();
     });
+  }
+
+  /// Load all user-scoped data from SQLite after authentication.
+  Future<void> _loadUserData(String userId) async {
+    if (_dataLoaded) return;
+    _dataLoaded = true;
+    await Future.wait([
+      context.read<TransactionProvider>().loadForUser(userId),
+      context.read<BudgetProvider>().loadForUser(userId),
+      context.read<CategoryProvider>().loadForUser(userId),
+    ]);
   }
 
   @override
@@ -103,8 +116,13 @@ class _AuthGateState extends State<_AuthGate> {
 
         // Route based on auth state
         if (auth.isLoggedIn) {
+          // Load user data from SQLite
+          _loadUserData(auth.currentUser!.id);
           return const HomeShell();
         }
+
+        // Reset flag so data reloads on next login
+        _dataLoaded = false;
         return const LoginPage();
       },
     );

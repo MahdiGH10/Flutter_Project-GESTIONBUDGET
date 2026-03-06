@@ -431,12 +431,12 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final amount = double.tryParse(amountCtrl.text);
                         if (nameCtrl.text.isNotEmpty &&
                             amount != null &&
                             amount > 0) {
-                          context.read<BudgetProvider>().addGoal(
+                          await context.read<BudgetProvider>().addGoal(
                             name: nameCtrl.text,
                             categoryId: selectedCategoryId,
                             targetAmount: amount,
@@ -445,7 +445,7 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                               DateTime.now().month,
                             ),
                           );
-                          Navigator.pop(context);
+                          if (context.mounted) Navigator.pop(context);
                         }
                       },
                       child: const Text('Create Goal'),

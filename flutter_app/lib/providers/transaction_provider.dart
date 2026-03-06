@@ -5,11 +5,8 @@ import '../services/transaction_service.dart';
 
 class TransactionProvider extends ChangeNotifier {
   final TransactionService _service = TransactionService();
-  bool _isLoading = true;
-
-  TransactionProvider() {
-    _bootstrap();
-  }
+  bool _isLoading = false;
+  String? _userId;
 
   bool get isLoading => _isLoading;
 
@@ -18,21 +15,34 @@ class TransactionProvider extends ChangeNotifier {
   double get totalExpense => _service.totalExpense;
   double get balance => _service.balance;
 
-  Future<void> _bootstrap() async {
-    await Future.delayed(const Duration(milliseconds: 250));
+  /// Load transactions for [userId] from SQLite.
+  Future<void> loadForUser(String userId) async {
+    _userId = userId;
+    _isLoading = true;
+    notifyListeners();
+    await _service.loadForUser(userId);
     _isLoading = false;
     notifyListeners();
   }
 
-  void addTransaction({
+  /// Clear data on logout.
+  void clear() {
+    _userId = null;
+    _service.clear();
+    notifyListeners();
+  }
+
+  Future<void> addTransaction({
     required String title,
     required double amount,
     required DateTime date,
     required String categoryId,
     required CategoryType type,
     String? description,
-  }) {
-    _service.addTransaction(
+  }) async {
+    if (_userId == null) return;
+    await _service.addTransaction(
+      userId: _userId!,
       title: title,
       amount: amount,
       date: date,
@@ -43,8 +53,9 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void deleteTransaction(String id) {
-    _service.deleteTransaction(id);
+  Future<void> deleteTransaction(String id) async {
+    if (_userId == null) return;
+    await _service.deleteTransaction(id, userId: _userId!);
     notifyListeners();
   }
 

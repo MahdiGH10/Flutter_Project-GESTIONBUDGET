@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../providers/budget_provider.dart';
+import '../../providers/category_provider.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_page.dart';
 
@@ -347,6 +350,10 @@ class _ProfilePageState extends State<ProfilePage>
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () async {
+                    // Clear all user-scoped data
+                    context.read<TransactionProvider>().clear();
+                    context.read<BudgetProvider>().clear();
+                    context.read<CategoryProvider>().clear();
                     await context.read<AuthProvider>().logout();
                     if (context.mounted) {
                       Navigator.pushAndRemoveUntil(

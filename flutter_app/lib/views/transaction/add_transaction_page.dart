@@ -69,7 +69,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     });
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     final amount = double.tryParse(_amount);
     if (amount == null || amount <= 0 || _selectedCategoryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -90,7 +90,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     }
 
     final cat = _categories.firstWhere((c) => c.id == _selectedCategoryId);
-    context.read<TransactionProvider>().addTransaction(
+    await context.read<TransactionProvider>().addTransaction(
       title: cat.name,
       amount: amount,
       date: _selectedDate,
@@ -101,7 +101,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           : null,
     );
 
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   @override

@@ -1,16 +1,12 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/category_model.dart';
+import '../repositories/category_repository.dart';
 
 class CategoryProvider extends ChangeNotifier {
-  static const _storageKey = 'custom_categories';
+  final CategoryRepository _repo = CategoryRepository();
   final List<Category> _customCategories = [];
-  bool _isLoading = true;
-
-  CategoryProvider() {
-    _load();
-  }
+  bool _isLoading = false;
+  String? _userId;
 
   bool get isLoading => _isLoading;
   List<Category> get customCategories => List.unmodifiable(_customCategories);
@@ -21,40 +17,37 @@ class CategoryProvider extends ChangeNotifier {
     return [...defaults, ...custom];
   }
 
-  Future<void> addCategory(Category category) async {
-    _customCategories.add(category);
-    await _persist();
+  /// Load custom categories for [userId] from SQLite.
+  Future<void> loadForUser(String userId) async {
+    _userId = userId;
+    _isLoading = true;
     notifyListeners();
-  }
-
-  Future<void> deleteCategory(String id) async {
-    _customCategories.removeWhere((c) => c.id == id);
-    await _persist();
-    notifyListeners();
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKey);
-    if (raw != null) {
-      final decoded = jsonDecode(raw) as List<dynamic>;
-      _customCategories
-        ..clear()
-        ..addAll(
-          decoded.map(
-            (item) => Category.fromMap(item as Map<String, dynamic>),
-          ),
-        );
-    }
+    final loaded = await _repo.getCustomCategories(userId: userId);
+    _customCategories
+      ..clear()
+      ..addAll(loaded);
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = jsonEncode(
-      _customCategories.map((c) => c.toMap()).toList(),
-    );
-    await prefs.setString(_storageKey, encoded);
+  /// Clear data on logout.
+  void clear() {
+    _userId = null;
+    _customCategories.clear();
+    notifyListeners();
+  }
+
+  Future<void> addCategory(Category category) async {
+    if (_userId == null) return;
+    await _repo.insert(category, userId: _userId!);
+    _customCategories.add(category);
+    notifyListeners();
+  }
+
+  Future<void> deleteCategory(String id) async {
+    if (_userId == null) return;
+    await _repo.delete(id);
+    _customCategories.removeWhere((c) => c.id == id);
+    notifyListeners();
   }
 }

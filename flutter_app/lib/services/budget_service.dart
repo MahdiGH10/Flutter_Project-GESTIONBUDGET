@@ -1,69 +1,34 @@
 import '../models/budget_goal_model.dart';
+import '../repositories/budget_repository.dart';
 import 'package:uuid/uuid.dart';
 
+/// Service layer for budget goals. Delegates persistence to
+/// [BudgetRepository] and keeps an in-memory cache for fast reads.
 class BudgetService {
-  final List<BudgetGoal> _goals = [];
+  final BudgetRepository _repo = BudgetRepository();
   final _uuid = const Uuid();
 
-  BudgetService() {
-    _loadSampleGoals();
-  }
-
-  void _loadSampleGoals() {
-    final now = DateTime.now();
-    final month = DateTime(now.year, now.month);
-    _goals.addAll([
-      BudgetGoal(
-        id: _uuid.v4(),
-        name: 'Monthly Savings',
-        categoryId: 'savings',
-        targetAmount: 1000,
-        currentAmount: 650,
-        month: month,
-      ),
-      BudgetGoal(
-        id: _uuid.v4(),
-        name: 'Food Budget',
-        categoryId: 'food',
-        targetAmount: 400,
-        currentAmount: 285,
-        month: month,
-      ),
-      BudgetGoal(
-        id: _uuid.v4(),
-        name: 'Transport Limit',
-        categoryId: 'transport',
-        targetAmount: 200,
-        currentAmount: 124,
-        month: month,
-      ),
-      BudgetGoal(
-        id: _uuid.v4(),
-        name: 'Entertainment',
-        categoryId: 'entertainment',
-        targetAmount: 150,
-        currentAmount: 89,
-        month: month,
-      ),
-      BudgetGoal(
-        id: _uuid.v4(),
-        name: 'Shopping Cap',
-        categoryId: 'shopping',
-        targetAmount: 300,
-        currentAmount: 450,
-        month: month,
-      ),
-    ]);
-  }
+  List<BudgetGoal> _goals = [];
 
   List<BudgetGoal> get goals => List.unmodifiable(_goals);
 
-  BudgetGoal addGoal({
+  /// Load all goals for the given user from SQLite.
+  Future<void> loadForUser(String userId) async {
+    _goals = await _repo.getAll(userId: userId);
+  }
+
+  /// Clear the in-memory cache (e.g. on logout).
+  void clear() {
+    _goals = [];
+  }
+
+  Future<BudgetGoal> addGoal({
+    required String userId,
     required String name,
     required String categoryId,
     required double targetAmount,
     required DateTime month,
-  }) {
+  }) async {
     final goal = BudgetGoal(
       id: _uuid.v4(),
       name: name,
@@ -71,18 +36,25 @@ class BudgetService {
       targetAmount: targetAmount,
       month: month,
     );
+    await _repo.insert(goal, userId: userId);
     _goals.add(goal);
     return goal;
   }
 
-  void updateGoalProgress(String goalId, double currentAmount) {
+  Future<void> updateGoalProgress(
+    String goalId,
+    double currentAmount, {
+    required String userId,
+  }) async {
+    await _repo.updateProgress(goalId, currentAmount, userId: userId);
     final index = _goals.indexWhere((g) => g.id == goalId);
     if (index != -1) {
       _goals[index] = _goals[index].copyWith(currentAmount: currentAmount);
     }
   }
 
-  void deleteGoal(String id) {
+  Future<void> deleteGoal(String id, {required String userId}) async {
+    await _repo.delete(id);
     _goals.removeWhere((g) => g.id == id);
   }
 
