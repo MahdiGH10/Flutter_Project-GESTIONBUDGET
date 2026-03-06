@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../providers/budget_provider.dart';
+import '../../providers/category_provider.dart';
 import '../../theme/app_theme.dart';
 import 'register_page.dart';
 import '../dashboard/home_shell.dart';
@@ -69,6 +72,15 @@ class _LoginPageState extends State<LoginPage>
     final auth = context.read<AuthProvider>();
     final success = await auth.login(email, password);
     if (success && mounted) {
+      final userId = auth.currentUser?.id;
+      if (userId != null) {
+        await Future.wait([
+          context.read<TransactionProvider>().loadForUser(userId),
+          context.read<BudgetProvider>().loadForUser(userId),
+          context.read<CategoryProvider>().loadForUser(userId),
+        ]);
+      }
+
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(

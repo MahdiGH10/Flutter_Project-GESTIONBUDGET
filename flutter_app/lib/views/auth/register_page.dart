@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../providers/budget_provider.dart';
+import '../../providers/category_provider.dart';
 import '../../theme/app_theme.dart';
 import '../dashboard/home_shell.dart';
 
@@ -79,6 +82,15 @@ class _RegisterPageState extends State<RegisterPage>
       currency: _selectedCurrency.split(' - ').first,
     );
     if (success && mounted) {
+      final userId = auth.currentUser?.id;
+      if (userId != null) {
+        await Future.wait([
+          context.read<TransactionProvider>().loadForUser(userId),
+          context.read<BudgetProvider>().loadForUser(userId),
+          context.read<CategoryProvider>().loadForUser(userId),
+        ]);
+      }
+
       Navigator.pushAndRemoveUntil(
         context,
         PageRouteBuilder(
