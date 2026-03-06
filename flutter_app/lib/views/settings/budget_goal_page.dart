@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/category_model.dart';
+import '../../models/budget_goal_model.dart';
 import '../../providers/budget_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../providers/category_provider.dart';
 import '../../theme/app_theme.dart';
 
 class BudgetGoalPage extends StatefulWidget {
@@ -14,6 +17,7 @@ class BudgetGoalPage extends StatefulWidget {
 class _BudgetGoalPageState extends State<BudgetGoalPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
+  String _lastTxSignature = '';
 
   @override
   void initState() {
@@ -50,8 +54,22 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
     return Scaffold(
       backgroundColor: AppTheme.neutral100,
       body: SafeArea(
-        child: Consumer<BudgetProvider>(
-          builder: (context, budgetProvider, _) {
+        child: Consumer2<BudgetProvider, TransactionProvider>(
+          builder: (context, budgetProvider, txnProvider, _) {
+            final txSignature = txnProvider.transactions
+                .map((t) => '${t.id}:${t.amount}:${t.date.millisecondsSinceEpoch}')
+                .join('|');
+
+            if (txSignature != _lastTxSignature) {
+              _lastTxSignature = txSignature;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                context.read<BudgetProvider>().recalculateProgress(
+                  txnProvider.transactions,
+                );
+              });
+            }
+
             final goals = budgetProvider.goals;
 
             return CustomScrollView(
@@ -120,7 +138,7 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'February 2026 Progress',
+                            '${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year} Progress',
                             style: AppTheme.captionRegular.copyWith(
                               color: Colors.white.withOpacity(0.7),
                             ),
@@ -159,6 +177,56 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                     ),
                   ),
                 ),
+
+                if (budgetProvider.exceededGoals.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppTheme.danger500.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppTheme.danger500.withOpacity(0.35),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: AppTheme.danger500,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Plafond dépassé',
+                                  style: AppTheme.captionMedium.copyWith(
+                                    color: AppTheme.danger500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...budgetProvider.exceededGoals.map(
+                              (goal) => Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  '${goal.targetAmount.toStringAsFixed(0)} TND • ${goal.name}',
+                                  style: AppTheme.smallMedium.copyWith(
+                                    color: AppTheme.neutral900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
 
                 // Goals header
                 SliverToBoxAdapter(
@@ -245,6 +313,30 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                                           : AppTheme.success500,
                                     ),
                                   ),
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) async {
+                                      if (value == 'edit') {
+                                        _showAddGoalDialog(
+                                          context,
+                                          initialGoal: goal,
+                                        );
+                                      } else if (value == 'delete') {
+                                        await context
+                                            .read<BudgetProvider>()
+                                            .deleteGoal(goal.id);
+                                      }
+                                    },
+                                    itemBuilder: (_) => const [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: Text('Edit'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 16),
@@ -326,10 +418,20 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
     );
   }
 
-  void _showAddGoalDialog(BuildContext context) {
+  void _showAddGoalDialog(BuildContext context, {BudgetGoal? initialGoal}) {
     final nameCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
-    String selectedCategoryId = 'food';
+    final expenseCategories = context
+        .read<CategoryProvider>()
+        .categoriesByType(CategoryType.expense);
+
+    String selectedCategoryId =
+        initialGoal?.categoryId ?? (expenseCategories.isNotEmpty ? expenseCategories.first.id : 'food');
+
+    if (initialGoal != null) {
+      nameCtrl.text = initialGoal.name;
+      amountCtrl.text = initialGoal.targetAmount.toStringAsFixed(0);
+    }
 
     showModalBottomSheet(
       context: context,
@@ -363,7 +465,10 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text('New Budget Goal', style: AppTheme.h3SemiBold),
+                  Text(
+                    initialGoal == null ? 'New Budget Goal' : 'Edit Budget Goal',
+                    style: AppTheme.h3SemiBold,
+                  ),
                   const SizedBox(height: 20),
                   TextField(
                     controller: nameCtrl,
@@ -388,7 +493,7 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: DefaultCategories.expenses.map((cat) {
+                    children: expenseCategories.map((cat) {
                       final isSelected = selectedCategoryId == cat.id;
                       return GestureDetector(
                         onTap: () =>
@@ -436,19 +541,29 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                         if (nameCtrl.text.isNotEmpty &&
                             amount != null &&
                             amount > 0) {
-                          await context.read<BudgetProvider>().addGoal(
-                            name: nameCtrl.text,
-                            categoryId: selectedCategoryId,
-                            targetAmount: amount,
-                            month: DateTime(
-                              DateTime.now().year,
-                              DateTime.now().month,
-                            ),
-                          );
+                          if (initialGoal == null) {
+                            await context.read<BudgetProvider>().addGoal(
+                              name: nameCtrl.text,
+                              categoryId: selectedCategoryId,
+                              targetAmount: amount,
+                              month: DateTime(
+                                DateTime.now().year,
+                                DateTime.now().month,
+                              ),
+                            );
+                          } else {
+                            await context.read<BudgetProvider>().updateGoal(
+                              initialGoal.copyWith(
+                                name: nameCtrl.text,
+                                categoryId: selectedCategoryId,
+                                targetAmount: amount,
+                              ),
+                            );
+                          }
                           if (context.mounted) Navigator.pop(context);
                         }
                       },
-                      child: const Text('Create Goal'),
+                      child: Text(initialGoal == null ? 'Create Goal' : 'Save Changes'),
                     ),
                   ),
                 ],

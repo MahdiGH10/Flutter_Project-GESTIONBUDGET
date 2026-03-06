@@ -50,16 +50,18 @@ class BudgetGoal {
 
   BudgetGoal copyWith({
     String? name,
+    String? categoryId,
     double? targetAmount,
     double? currentAmount,
+    DateTime? month,
     bool? isActive,
   }) => BudgetGoal(
     id: id,
     name: name ?? this.name,
-    categoryId: categoryId,
+    categoryId: categoryId ?? this.categoryId,
     targetAmount: targetAmount ?? this.targetAmount,
     currentAmount: currentAmount ?? this.currentAmount,
-    month: month,
+    month: month ?? this.month,
     isActive: isActive ?? this.isActive,
   );
 }

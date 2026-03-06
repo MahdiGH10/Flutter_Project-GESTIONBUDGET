@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/budget_goal_model.dart';
+import '../models/transaction_model.dart';
 import '../services/budget_service.dart';
 
 class BudgetProvider extends ChangeNotifier {
@@ -10,6 +11,8 @@ class BudgetProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   List<BudgetGoal> get goals => _service.goals;
+  List<BudgetGoal> get exceededGoals =>
+      _service.goals.where((g) => g.isExceeded).toList();
   int get onTrackCount => _service.onTrackCount;
   int get warningCount => _service.warningCount;
   int get exceededCount => _service.exceededCount;
@@ -58,5 +61,22 @@ class BudgetProvider extends ChangeNotifier {
     if (_userId == null) return;
     await _service.deleteGoal(id, userId: _userId!);
     notifyListeners();
+  }
+
+  Future<void> updateGoal(BudgetGoal goal) async {
+    if (_userId == null) return;
+    await _service.updateGoal(goal, userId: _userId!);
+    notifyListeners();
+  }
+
+  Future<void> recalculateProgress(List<Transaction> transactions) async {
+    if (_userId == null) return;
+    final changed = await _service.recalculateProgressFromTransactions(
+      transactions,
+      userId: _userId!,
+    );
+    if (changed) {
+      notifyListeners();
+    }
   }
 }
