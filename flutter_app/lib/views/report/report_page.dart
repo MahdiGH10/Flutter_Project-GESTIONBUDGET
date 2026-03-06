@@ -1,12 +1,14 @@
-import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../models/category_model.dart';
 import '../../models/transaction_model.dart';
+import '../../providers/category_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/bar_chart_widget.dart';
+import '../../widgets/pie_chart_widget.dart';
 import '../../widgets/shared_widgets.dart';
 
 class ReportPage extends StatefulWidget {
@@ -18,7 +20,7 @@ class ReportPage extends StatefulWidget {
 
 class _ReportPageState extends State<ReportPage>
     with SingleTickerProviderStateMixin {
-  String _timeRange = 'month';
+  String _timeRange = 'month'; // day | week | month | year
   late AnimationController _animController;
 
   @override
@@ -26,9 +28,8 @@ class _ReportPageState extends State<ReportPage>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-    _animController.forward();
+      duration: const Duration(milliseconds: 900),
+    )..forward();
   }
 
   @override
@@ -39,519 +40,245 @@ class _ReportPageState extends State<ReportPage>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TransactionProvider>(
-      builder: (context, txnProvider, _) {
+    return Consumer2<TransactionProvider, CategoryProvider>(
+      builder: (context, txnProvider, categoryProvider, _) {
+        final categoryLookup = {
+          for (final c in DefaultCategories.all) c.id: c,
+          for (final c in categoryProvider.customCategories) c.id: c,
+        };
+
         final filteredTxns = _filterTransactions(txnProvider.transactions);
-        final expenseByCategory = _getExpenseByCategory(filteredTxns);
-        final barSeries = _getBarSeries(filteredTxns);
-        final totalExpense = _sum(filteredTxns.where((t) => t.isExpense));
         final totalIncome = _sum(filteredTxns.where((t) => t.isIncome));
-        final monthlySeries = _getMonthlyBalanceSeries(
-          filteredTxns,
-          _timeRange == 'year' ? 12 : 6,
-        );
+        final totalExpense = _sum(filteredTxns.where((t) => t.isExpense));
         final saved = totalIncome - totalExpense;
 
-        final categoryEntries = expenseByCategory.entries.toList();
-        final pieData = categoryEntries.map((entry) {
-          final cat = DefaultCategories.all
-              .where((c) => c.id == entry.key)
-              .firstOrNull;
-          return PieChartSectionData(
-            value: entry.value,
-            color: cat?.color ?? AppTheme.neutral400,
-            title: '',
-            radius: 40,
-          );
-        }).toList();
+        final expenseByCategory = _getExpenseByCategory(filteredTxns);
+        final monthlyIncomeExpense = _getMonthlyIncomeExpenseSeries(filteredTxns);
+        final balanceSeries = monthlyIncomeExpense
+            .map((e) => MapEntry(e.label, e.income - e.expense))
+            .toList();
 
         final hasData = filteredTxns.isNotEmpty;
-        final slivers = <Widget>[
-          SliverToBoxAdapter(
-            child: Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: Row(
-                children: [
-                  Text(
-                    'Statistics',
-                    style: AppTheme.h2Bold.copyWith(fontSize: 20),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.more_horiz,
-                      color: AppTheme.neutral900,
-                    ),
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppTheme.neutral100,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: AppTheme.neutral100,
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              ),
-              child: Row(
-                children: ['Day', 'Week', 'Month', 'Year'].map((range) {
-                  final isActive = _timeRange == range.toLowerCase();
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () =>
-                          setState(() => _timeRange = range.toLowerCase()),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isActive ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: isActive ? AppTheme.shadowSm : null,
-                        ),
-                        child: Text(
-                          range,
-                          textAlign: TextAlign.center,
-                          style: AppTheme.captionMedium.copyWith(
-                            color: isActive
-                                ? AppTheme.neutral900
-                                : AppTheme.neutral500,
-                            fontWeight: isActive
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        ];
 
-        if (!hasData) {
-          slivers.add(
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 40, 20, 100),
-                child: EmptyState(
-                  title: 'No data yet',
-                  message:
-                      'Add transactions to see your statistics and insights.',
-                  icon: Icons.insights_outlined,
-                ),
-              ),
-            ),
-          );
-          return CustomScrollView(slivers: slivers);
-        }
-
-        slivers.addAll([
-          SliverToBoxAdapter(
-            child: FadeTransition(
-              opacity: CurvedAnimation(
-                parent: _animController,
-                curve: const Interval(0.0, 0.4),
-              ),
-              child: Padding(
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Container(
+                color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 child: Row(
                   children: [
-                    _StatCard(
-                      label: 'Income',
-                      value: totalIncome.toStringAsFixed(0),
-                      color: AppTheme.success500,
-                    ),
-                    const SizedBox(width: 8),
-                    _StatCard(
-                      label: 'Expense',
-                      value: totalExpense.toStringAsFixed(0),
-                      color: AppTheme.danger500,
-                    ),
-                    const SizedBox(width: 8),
-                    _StatCard(
-                      label: 'Saved',
-                      value: saved.toStringAsFixed(0),
-                      color: AppTheme.neutral900,
+                    Text('Statistics', style: AppTheme.h2Bold.copyWith(fontSize: 20)),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.insights, color: AppTheme.neutral900),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.neutral100,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(0, 0.2),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: _animController,
-                      curve: const Interval(
-                        0.2,
-                        0.6,
-                        curve: Curves.easeOutCubic,
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppTheme.neutral100,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                ),
+                child: Row(
+                  children: ['Day', 'Week', 'Month', 'Year'].map((range) {
+                    final key = range.toLowerCase();
+                    final isActive = _timeRange == key;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _timeRange = key),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isActive ? Colors.white : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: isActive ? AppTheme.shadowSm : null,
+                          ),
+                          child: Text(
+                            range,
+                            textAlign: TextAlign.center,
+                            style: AppTheme.captionMedium.copyWith(
+                              color: isActive ? AppTheme.neutral900 : AppTheme.neutral500,
+                              fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
                       ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            if (!hasData)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 40, 20, 100),
+                  child: EmptyState(
+                    title: 'No data yet',
+                    message: 'Add transactions to see your statistics and insights.',
+                    icon: Icons.insights_outlined,
+                  ),
+                ),
+              )
+            else ...[
+              SliverToBoxAdapter(
+                child: FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: _animController,
+                    curve: const Interval(0.0, 0.35),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    child: Row(
+                      children: [
+                        _StatCard(
+                          label: 'Income',
+                          value: totalIncome.toStringAsFixed(0),
+                          color: AppTheme.success500,
+                        ),
+                        const SizedBox(width: 8),
+                        _StatCard(
+                          label: 'Expense',
+                          value: totalExpense.toStringAsFixed(0),
+                          color: AppTheme.danger500,
+                        ),
+                        const SizedBox(width: 8),
+                        _StatCard(
+                          label: 'Saved',
+                          value: saved.toStringAsFixed(0),
+                          color: AppTheme.neutral900,
+                        ),
+                      ],
                     ),
                   ),
-              child: FadeTransition(
-                opacity: CurvedAnimation(
-                  parent: _animController,
-                  curve: const Interval(0.2, 0.5),
                 ),
+              ),
+              SliverToBoxAdapter(
                 child: _ChartCard(
-                  title: 'Expense Overview',
-                  child: SizedBox(
-                    height: 200,
-                    child: BarChart(
-                      BarChartData(
-                        alignment: BarChartAlignment.spaceAround,
-                        maxY: max(
-                          1,
-                          barSeries.map((e) => e.value).fold(0.0, max) * 1.3,
-                        ),
-                        barTouchData: BarTouchData(
-                          touchTooltipData: BarTouchTooltipData(
-                            getTooltipColor: (_) => AppTheme.primary900,
-                            getTooltipItem: (group, gIdx, rod, rIdx) {
-                              return BarTooltipItem(
-                                '${rod.toY.toStringAsFixed(0)} TND',
-                                AppTheme.smallMedium.copyWith(
-                                  color: Colors.white,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        titlesData: FlTitlesData(
-                          show: true,
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              getTitlesWidget: (value, meta) {
-                                if (value.toInt() < barSeries.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: Text(
-                                      barSeries[value.toInt()].key,
-                                      style: AppTheme.smallMedium,
-                                    ),
-                                  );
-                                }
-                                return const SizedBox.shrink();
-                              },
-                            ),
-                          ),
-                          leftTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        gridData: const FlGridData(show: false),
-                        barGroups: barSeries
-                            .asMap()
-                            .entries
-                            .map(
-                              (e) => BarChartGroupData(
-                                x: e.key,
-                                barRods: [
-                                  BarChartRodData(
-                                    toY: e.value.value,
-                                    color: AppTheme.danger500,
-                                    width: 20,
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(6),
-                                      topRight: Radius.circular(6),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(
-            child: _ChartCard(
-              title: 'Spending by Category',
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: 200,
-                    child: pieData.isNotEmpty
-                        ? Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              PieChart(
-                                PieChartData(
-                                  sections: pieData,
-                                  centerSpaceRadius: 60,
-                                  sectionsSpace: 2,
-                                ),
-                              ),
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    totalExpense.toStringAsFixed(0),
-                                    style: AppTheme.h2Bold,
-                                  ),
-                                  Text('TND', style: AppTheme.smallMedium),
-                                ],
-                              ),
-                            ],
-                          )
-                        : const Center(child: Text('No expense data yet')),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 8,
-                    children: categoryEntries.map((entry) {
-                      final cat = DefaultCategories.all
-                          .where((c) => c.id == entry.key)
-                          .firstOrNull;
-                      return Row(
-                        mainAxisSize: MainAxisSize.min,
+                  title: 'Income vs Expense (Monthly)',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: cat?.color ?? AppTheme.neutral400,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            cat?.name ?? entry.key,
-                            style: AppTheme.smallMedium,
-                          ),
+                          _LegendDot(color: AppTheme.success500, label: 'Income'),
+                          const SizedBox(width: 12),
+                          _LegendDot(color: AppTheme.danger500, label: 'Expense'),
                         ],
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(
-            child: _ChartCard(
-              title: 'Balance Trend',
-              child: SizedBox(
-                height: 200,
-                child: LineChart(
-                  LineChartData(
-                    gridData: const FlGridData(show: false),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      leftTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
                       ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, meta) {
-                            if (value.toInt() < monthlySeries.length) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  monthlySeries[value.toInt()].key,
-                                  style: AppTheme.smallMedium,
-                                ),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
-                      ),
-                    ),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: monthlySeries
-                            .asMap()
-                            .entries
-                            .map(
-                              (entry) => FlSpot(
-                                entry.key.toDouble(),
-                                entry.value.value,
-                              ),
-                            )
-                            .toList(),
-                        color: AppTheme.primary900,
-                        barWidth: 3,
-                        isCurved: true,
-                        dotData: const FlDotData(show: false),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: AppTheme.primary900.withOpacity(0.1),
-                        ),
-                      ),
+                      const SizedBox(height: 12),
+                      BarChartWidget(data: monthlyIncomeExpense),
                     ],
                   ),
                 ),
               ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(
-            child: _ChartCard(
-              title: 'Category Breakdown',
-              child: categoryEntries.isEmpty
-                  ? Text(
-                      'No expense data available.',
-                      style: AppTheme.smallMedium.copyWith(
-                        color: AppTheme.neutral500,
-                      ),
-                    )
-                  : Column(
-                      children: (() {
-                        final sortedEntries = [...categoryEntries]
-                          ..sort((a, b) => b.value.compareTo(a.value));
-                        return sortedEntries.map((entry) {
-                          final cat = DefaultCategories.all
-                              .where((c) => c.id == entry.key)
-                              .firstOrNull;
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: cat?.color ?? AppTheme.neutral400,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    cat?.name ?? entry.key,
-                                    style: AppTheme.smallMedium,
-                                  ),
-                                ),
-                                Text(
-                                  '${entry.value.toStringAsFixed(0)} TND',
-                                  style: AppTheme.bodySemiBold.copyWith(
-                                    fontSize: 14,
-                                    color: AppTheme.neutral900,
-                                  ),
-                                ),
-                              ],
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(
+                child: _ChartCard(
+                  title: 'Spending by Category',
+                  child: PieChartWidget(
+                    expenseByCategory: expenseByCategory,
+                    categoryLookup: categoryLookup,
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(
+                child: _ChartCard(
+                  title: 'Monthly Balance Trend',
+                  child: SizedBox(
+                    height: 220,
+                    child: LineChart(
+                      LineChartData(
+                        gridData: const FlGridData(show: false),
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (value, meta) {
+                                final idx = value.toInt();
+                                if (idx < 0 || idx >= balanceSeries.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(balanceSeries[idx].key, style: AppTheme.smallMedium),
+                                );
+                              },
                             ),
-                          );
-                        }).toList();
-                      })(),
+                          ),
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: balanceSeries
+                                .asMap()
+                                .entries
+                                .map((e) => FlSpot(e.key.toDouble(), e.value.value))
+                                .toList(),
+                            color: AppTheme.primary900,
+                            barWidth: 3,
+                            isCurved: true,
+                            dotData: const FlDotData(show: false),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: AppTheme.primary900.withValues(alpha: 0.1),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ]);
-
-        return CustomScrollView(slivers: slivers);
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(
+                child: _ChartCard(
+                  title: 'Transactions Table',
+                  child: _buildDataTable(filteredTxns, categoryLookup),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ],
+        );
       },
     );
   }
 
-  List<MapEntry<String, double>> _getBarSeries(List<Transaction> transactions) {
-    final now = DateTime.now();
-    if (_timeRange == 'year') {
-      return List.generate(12, (index) {
-        final month = DateTime(now.year, now.month - (11 - index), 1);
-        final total = transactions
-            .where(
-              (t) =>
-                  t.isExpense &&
-                  t.date.year == month.year &&
-                  t.date.month == month.month,
-            )
-            .fold(0.0, (sum, t) => sum + t.amount);
-        return MapEntry(DateFormat('MMM').format(month), total);
-      });
-    }
-
-    final days = _timeRange == 'day'
-        ? 1
-        : _timeRange == 'week'
-        ? 7
-        : 30;
-    return List.generate(days, (index) {
-      final day = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(Duration(days: days - 1 - index));
-      final total = transactions
-          .where(
-            (t) =>
-                t.isExpense &&
-                t.date.year == day.year &&
-                t.date.month == day.month &&
-                t.date.day == day.day,
-          )
-          .fold(0.0, (sum, t) => sum + t.amount);
-      final label = _timeRange == 'month'
-          ? DateFormat('d').format(day)
-          : _timeRange == 'day'
-          ? 'Today'
-          : DateFormat('EEE').format(day);
-      return MapEntry(label, total);
-    });
-  }
-
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
     final now = DateTime.now();
-    final start = _timeRange == 'day'
-        ? DateTime(now.year, now.month, now.day)
-        : _timeRange == 'week'
-        ? DateTime(
-            now.year,
-            now.month,
-            now.day,
-          ).subtract(const Duration(days: 6))
-        : _timeRange == 'month'
-        ? DateTime(
-            now.year,
-            now.month,
-            now.day,
-          ).subtract(const Duration(days: 29))
-        : DateTime(now.year - 1, now.month, now.day);
+    final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+    final start = switch (_timeRange) {
+      'day' => DateTime(now.year, now.month, now.day),
+      'week' => DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6)),
+      'month' => DateTime(now.year, now.month, now.day).subtract(const Duration(days: 29)),
+      _ => DateTime(now.year - 1, now.month, now.day),
+    };
 
     return transactions
-        .where((t) => !t.date.isBefore(start) && !t.date.isAfter(now))
-        .toList();
+        .where((t) => !t.date.isBefore(start) && !t.date.isAfter(end))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
   }
 
   Map<String, double> _getExpenseByCategory(List<Transaction> transactions) {
@@ -564,36 +291,71 @@ class _ReportPageState extends State<ReportPage>
     return map;
   }
 
-  double _sum(Iterable<Transaction> transactions) {
-    return transactions.fold(0.0, (sum, t) => sum + t.amount);
-  }
-
-  List<MapEntry<String, double>> _getMonthlyBalanceSeries(
+  List<IncomeExpensePoint> _getMonthlyIncomeExpenseSeries(
     List<Transaction> transactions,
-    int months,
   ) {
     final now = DateTime.now();
+    final months = _timeRange == 'year' ? 12 : 6;
+
     return List.generate(months, (index) {
       final month = DateTime(now.year, now.month - (months - 1 - index), 1);
       final income = transactions
-          .where(
-            (t) =>
-                t.isIncome &&
-                t.date.year == month.year &&
-                t.date.month == month.month,
-          )
-          .fold(0.0, (sum, t) => sum + t.amount);
+          .where((t) => t.isIncome && t.date.year == month.year && t.date.month == month.month)
+          .fold<double>(0.0, (sum, t) => sum + t.amount);
       final expense = transactions
-          .where(
-            (t) =>
-                t.isExpense &&
-                t.date.year == month.year &&
-                t.date.month == month.month,
-          )
-          .fold(0.0, (sum, t) => sum + t.amount);
-      final label = DateFormat('MMM').format(month);
-      return MapEntry(label, income - expense);
+          .where((t) => t.isExpense && t.date.year == month.year && t.date.month == month.month)
+          .fold<double>(0.0, (sum, t) => sum + t.amount);
+      return IncomeExpensePoint(
+        label: DateFormat('MMM').format(month),
+        income: income,
+        expense: expense,
+      );
     });
+  }
+
+  double _sum(Iterable<Transaction> transactions) {
+    return transactions.fold<double>(0.0, (sum, t) => sum + t.amount);
+  }
+
+  Widget _buildDataTable(
+    List<Transaction> txns,
+    Map<String, Category> categoryLookup,
+  ) {
+    final rows = txns.take(12).toList();
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingTextStyle: AppTheme.captionMedium.copyWith(color: AppTheme.neutral900),
+        dataTextStyle: AppTheme.smallMedium.copyWith(color: AppTheme.neutral900),
+        columns: const [
+          DataColumn(label: Text('Date')),
+          DataColumn(label: Text('Type')),
+          DataColumn(label: Text('Category')),
+          DataColumn(label: Text('Amount')),
+        ],
+        rows: rows
+            .map(
+              (t) => DataRow(
+                cells: [
+                  DataCell(Text(DateFormat('dd/MM').format(t.date))),
+                  DataCell(
+                    Text(
+                      t.isIncome ? 'Income' : 'Expense',
+                      style: TextStyle(
+                        color: t.isIncome ? AppTheme.success500 : AppTheme.danger500,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  DataCell(Text(categoryLookup[t.categoryId]?.name ?? t.categoryId)),
+                  DataCell(Text('${t.amount.toStringAsFixed(2)} TND')),
+                ],
+              ),
+            )
+            .toList(),
+      ),
+    );
   }
 }
 
@@ -657,6 +419,28 @@ class _ChartCard extends StatelessWidget {
           child,
         ],
       ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: AppTheme.smallMedium),
+      ],
     );
   }
 }
