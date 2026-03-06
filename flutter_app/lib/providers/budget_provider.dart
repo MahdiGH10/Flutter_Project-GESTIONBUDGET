@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../models/budget_goal_model.dart';
 import '../models/transaction_model.dart';
 import '../services/budget_service.dart';
@@ -9,6 +10,17 @@ class BudgetProvider extends ChangeNotifier {
   String? _userId;
 
   bool get isLoading => _isLoading;
+
+  bool get hasUserContext => _userId != null;
+
+  /// Ensure provider is bound to the current Firebase user.
+  Future<bool> ensureUserContext() async {
+    if (_userId != null) return true;
+    final uid = fb.FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return false;
+    await loadForUser(uid);
+    return true;
+  }
 
   List<BudgetGoal> get goals => _service.goals;
   List<BudgetGoal> get exceededGoals =>
@@ -40,7 +52,10 @@ class BudgetProvider extends ChangeNotifier {
     required double targetAmount,
     required DateTime month,
   }) async {
-    if (_userId == null) return;
+    final ready = await ensureUserContext();
+    if (!ready) {
+      throw StateError('Aucun utilisateur connecté. Veuillez vous reconnecter.');
+    }
     await _service.addGoal(
       userId: _userId!,
       name: name,
@@ -52,25 +67,29 @@ class BudgetProvider extends ChangeNotifier {
   }
 
   Future<void> updateGoalProgress(String goalId, double currentAmount) async {
-    if (_userId == null) return;
+    final ready = await ensureUserContext();
+    if (!ready) return;
     await _service.updateGoalProgress(goalId, currentAmount, userId: _userId!);
     notifyListeners();
   }
 
   Future<void> deleteGoal(String id) async {
-    if (_userId == null) return;
+    final ready = await ensureUserContext();
+    if (!ready) return;
     await _service.deleteGoal(id, userId: _userId!);
     notifyListeners();
   }
 
   Future<void> updateGoal(BudgetGoal goal) async {
-    if (_userId == null) return;
+    final ready = await ensureUserContext();
+    if (!ready) return;
     await _service.updateGoal(goal, userId: _userId!);
     notifyListeners();
   }
 
   Future<void> recalculateProgress(List<Transaction> transactions) async {
-    if (_userId == null) return;
+    final ready = await ensureUserContext();
+    if (!ready) return;
     final changed = await _service.recalculateProgressFromTransactions(
       transactions,
       userId: _userId!,

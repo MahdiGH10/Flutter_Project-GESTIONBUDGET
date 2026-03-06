@@ -541,26 +541,42 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                         if (nameCtrl.text.isNotEmpty &&
                             amount != null &&
                             amount > 0) {
-                          if (initialGoal == null) {
-                            await context.read<BudgetProvider>().addGoal(
-                              name: nameCtrl.text,
-                              categoryId: selectedCategoryId,
-                              targetAmount: amount,
-                              month: DateTime(
-                                DateTime.now().year,
-                                DateTime.now().month,
-                              ),
-                            );
-                          } else {
-                            await context.read<BudgetProvider>().updateGoal(
-                              initialGoal.copyWith(
+                          try {
+                            if (initialGoal == null) {
+                              await context.read<BudgetProvider>().addGoal(
                                 name: nameCtrl.text,
                                 categoryId: selectedCategoryId,
                                 targetAmount: amount,
+                                month: DateTime(
+                                  DateTime.now().year,
+                                  DateTime.now().month,
+                                ),
+                              );
+                            } else {
+                              await context.read<BudgetProvider>().updateGoal(
+                                initialGoal.copyWith(
+                                  name: nameCtrl.text,
+                                  categoryId: selectedCategoryId,
+                                  targetAmount: amount,
+                                ),
+                              );
+                            }
+                            if (context.mounted) Navigator.pop(context);
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  e.toString().replaceFirst('Bad state: ', ''),
+                                ),
+                                backgroundColor: AppTheme.danger500,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             );
                           }
-                          if (context.mounted) Navigator.pop(context);
                         }
                       },
                       child: Text(initialGoal == null ? 'Create Goal' : 'Save Changes'),

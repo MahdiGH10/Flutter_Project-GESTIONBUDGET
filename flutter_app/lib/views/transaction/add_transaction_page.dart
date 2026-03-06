@@ -98,18 +98,32 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       return;
     }
 
-    await context.read<TransactionProvider>().addTransaction(
-      title: selectedCategory.name,
-      amount: amount,
-      date: _selectedDate,
-      categoryId: _selectedCategoryId!,
-      type: _type,
-      description: _noteController.text.isNotEmpty
-          ? _noteController.text
-          : null,
-    );
+    try {
+      await context.read<TransactionProvider>().addTransaction(
+        title: selectedCategory.name,
+        amount: amount,
+        date: _selectedDate,
+        categoryId: _selectedCategoryId!,
+        type: _type,
+        description: _noteController.text.isNotEmpty
+            ? _noteController.text
+            : null,
+      );
 
-    if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Bad state: ', '')),
+          backgroundColor: AppTheme.danger500,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
   }
 
   @override
