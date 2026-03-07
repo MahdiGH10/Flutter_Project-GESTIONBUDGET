@@ -14,7 +14,7 @@ class TransactionService {
 
   List<Transaction> get transactions => List.unmodifiable(_transactions);
 
-  /// Load all transactions for the given user from SQLite.
+  /// Load all transactions for the given user from Firestore.
   Future<void> loadForUser(String userId) async {
     _transactions = await _repo.getAll(userId: userId);
   }
@@ -49,7 +49,7 @@ class TransactionService {
   }
 
   Future<void> deleteTransaction(String id, {required String userId}) async {
-    await _repo.delete(id);
+    await _repo.delete(id, userId: userId);
     _transactions.removeWhere((t) => t.id == id);
   }
 

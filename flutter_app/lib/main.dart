@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/transaction_provider.dart';
@@ -15,7 +13,6 @@ import 'views/dashboard/home_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await _initializeDatabaseFactory();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -26,22 +23,6 @@ void main() async {
     ),
   );
   runApp(const GestionBudgetaireApp());
-}
-
-Future<void> _initializeDatabaseFactory() async {
-  if (kIsWeb) {
-    return;
-  }
-
-  final isDesktop =
-      defaultTargetPlatform == TargetPlatform.windows ||
-      defaultTargetPlatform == TargetPlatform.linux ||
-      defaultTargetPlatform == TargetPlatform.macOS;
-
-  if (isDesktop) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
 }
 
 class GestionBudgetaireApp extends StatelessWidget {
@@ -67,7 +48,7 @@ class GestionBudgetaireApp extends StatelessWidget {
 }
 
 /// Checks if user is already logged in via Firebase and routes accordingly.
-/// After auth, loads all user-scoped data from SQLite.
+/// After auth, loads all user-scoped data from Firestore.
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
@@ -86,7 +67,7 @@ class _AuthGateState extends State<_AuthGate> {
     });
   }
 
-  /// Load all user-scoped data from SQLite after authentication.
+  /// Load all user-scoped data from Firestore after authentication.
   Future<void> _loadUserData(String userId) async {
     if (_dataLoaded) return;
     _dataLoaded = true;
@@ -135,7 +116,7 @@ class _AuthGateState extends State<_AuthGate> {
 
         // Route based on auth state
         if (auth.isLoggedIn) {
-          // Load user data from SQLite
+          // Load user data from Firestore
           _loadUserData(auth.currentUser!.id);
           return const HomeShell();
         }

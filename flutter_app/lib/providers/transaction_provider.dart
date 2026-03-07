@@ -27,7 +27,7 @@ class TransactionProvider extends ChangeNotifier {
     return true;
   }
 
-  /// Load transactions for [userId] from SQLite.
+  /// Load transactions for [userId] from Firestore.
   Future<void> loadForUser(String userId) async {
     _userId = userId;
     _isLoading = true;
@@ -37,7 +37,7 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reload transactions from SQLite for the current user.
+  /// Reload transactions from Firestore for the current user.
   Future<void> refresh() async {
     final ready = await ensureUserContext();
     if (!ready) return;

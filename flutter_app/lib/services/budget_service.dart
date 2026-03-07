@@ -14,7 +14,7 @@ class BudgetService {
 
   List<BudgetGoal> get goals => List.unmodifiable(_goals);
 
-  /// Load all goals for the given user from SQLite.
+  /// Load all goals for the given user from Firestore.
   Future<void> loadForUser(String userId) async {
     _goals = await _repo.getAll(userId: userId);
   }
@@ -56,7 +56,7 @@ class BudgetService {
   }
 
   Future<void> deleteGoal(String id, {required String userId}) async {
-    await _repo.delete(id);
+    await _repo.delete(id, userId: userId);
     _goals.removeWhere((g) => g.id == id);
   }
 

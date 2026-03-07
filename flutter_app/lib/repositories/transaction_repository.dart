@@ -1,27 +1,32 @@
-import '../database/database_helper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
 
-/// Repository that persists [Transaction] objects in SQLite,
+/// Repository that persists [Transaction] objects in Cloud Firestore,
 /// scoped to a specific user via [userId].
 class TransactionRepository {
-  final DatabaseHelper _db = DatabaseHelper.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  CollectionReference<Map<String, dynamic>> _collection(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('transactions');
+  }
 
   // ── CREATE ──────────────────────────────────────────────────
   Future<void> insert(Transaction transaction, {required String userId}) async {
     final row = transaction.toMap();
     row['user_id'] = userId;
-    await _db.insert(DatabaseHelper.tableTransactions, row);
+    await _collection(userId).doc(transaction.id).set(row);
   }
 
   // ── READ ────────────────────────────────────────────────────
   Future<List<Transaction>> getAll({required String userId}) async {
-    final rows = await _db.queryAll(
-      DatabaseHelper.tableTransactions,
-      userId: userId,
-      orderBy: 'date DESC',
-    );
-    return rows.map((row) => Transaction.fromMap(row)).toList();
+    final snapshot = await _collection(userId).orderBy('date', descending: true).get();
+    return snapshot.docs
+        .map((doc) => Transaction.fromMap(doc.data()))
+        .toList();
   }
 
   Future<List<Transaction>> getByType(
@@ -55,23 +60,21 @@ class TransactionRepository {
   Future<void> update(Transaction transaction, {required String userId}) async {
     final row = transaction.toMap();
     row['user_id'] = userId;
-    await _db.update(
-      DatabaseHelper.tableTransactions,
-      row,
-      id: transaction.id,
-    );
+    await _collection(userId).doc(transaction.id).set(row, SetOptions(merge: true));
   }
 
   // ── DELETE ──────────────────────────────────────────────────
-  Future<void> delete(String id) async {
-    await _db.delete(DatabaseHelper.tableTransactions, id: id);
+  Future<void> delete(String id, {required String userId}) async {
+    await _collection(userId).doc(id).delete();
   }
 
   Future<void> deleteAllForUser({required String userId}) async {
-    await _db.deleteAllForUser(
-      DatabaseHelper.tableTransactions,
-      userId: userId,
-    );
+    final snapshot = await _collection(userId).get();
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
   }
 
   // ── AGGREGATES ──────────────────────────────────────────────

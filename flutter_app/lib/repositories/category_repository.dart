@@ -1,27 +1,32 @@
-import '../database/database_helper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/category_model.dart';
 
-/// Repository that persists custom [Category] objects in SQLite,
+/// Repository that persists custom [Category] objects in Cloud Firestore,
 /// scoped to a specific user via [userId].
 class CategoryRepository {
-  final DatabaseHelper _db = DatabaseHelper.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  CollectionReference<Map<String, dynamic>> _collection(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('categories');
+  }
 
   // ── CREATE ──────────────────────────────────────────────────
   Future<void> insert(Category category, {required String userId}) async {
     final row = category.toMap();
     row['user_id'] = userId;
     row['is_custom'] = 1;
-    await _db.insert(DatabaseHelper.tableCategories, row);
+    row['created_at'] = DateTime.now().toIso8601String();
+    await _collection(userId).doc(category.id).set(row);
   }
 
   // ── READ ────────────────────────────────────────────────────
   Future<List<Category>> getCustomCategories({required String userId}) async {
-    final rows = await _db.queryAll(
-      DatabaseHelper.tableCategories,
-      userId: userId,
-      orderBy: 'created_at DESC',
-    );
-    return rows.map((row) => Category.fromMap(row)).toList();
+    final snapshot = await _collection(userId).get();
+    final docs = snapshot.docs.where((d) => d.data()['is_custom'] == 1);
+    return docs.map((doc) => Category.fromMap(doc.data())).toList();
   }
 
   /// Returns all categories for a user: defaults + custom.
@@ -40,18 +45,20 @@ class CategoryRepository {
     final row = category.toMap();
     row['user_id'] = userId;
     row['is_custom'] = 1;
-    await _db.update(DatabaseHelper.tableCategories, row, id: category.id);
+    await _collection(userId).doc(category.id).set(row, SetOptions(merge: true));
   }
 
   // ── DELETE ──────────────────────────────────────────────────
-  Future<void> delete(String id) async {
-    await _db.delete(DatabaseHelper.tableCategories, id: id);
+  Future<void> delete(String id, {required String userId}) async {
+    await _collection(userId).doc(id).delete();
   }
 
   Future<void> deleteAllForUser({required String userId}) async {
-    await _db.deleteAllForUser(
-      DatabaseHelper.tableCategories,
-      userId: userId,
-    );
+    final snapshot = await _collection(userId).get();
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
   }
 }

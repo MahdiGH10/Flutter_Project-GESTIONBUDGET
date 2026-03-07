@@ -29,7 +29,7 @@ class BudgetProvider extends ChangeNotifier {
   int get warningCount => _service.warningCount;
   int get exceededCount => _service.exceededCount;
 
-  /// Load goals for [userId] from SQLite.
+  /// Load goals for [userId] from Firestore.
   Future<void> loadForUser(String userId) async {
     _userId = userId;
     _isLoading = true;

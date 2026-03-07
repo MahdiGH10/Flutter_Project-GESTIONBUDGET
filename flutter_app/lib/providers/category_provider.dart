@@ -21,7 +21,7 @@ class CategoryProvider extends ChangeNotifier {
     return [...defaults, ...custom];
   }
 
-  /// Load custom categories for [userId] from SQLite.
+  /// Load custom categories for [userId] from Firestore.
   Future<void> loadForUser(String userId) async {
     _userId = userId;
     _isLoading = true;
@@ -50,7 +50,7 @@ class CategoryProvider extends ChangeNotifier {
 
   Future<void> deleteCategory(String id) async {
     if (_userId == null) return;
-    await _repo.delete(id);
+    await _repo.delete(id, userId: _userId!);
     _customCategories.removeWhere((c) => c.id == id);
     notifyListeners();
   }
