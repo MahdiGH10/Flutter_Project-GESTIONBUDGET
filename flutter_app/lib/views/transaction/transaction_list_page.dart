@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/category_model.dart';
+import '../../providers/category_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/shared_widgets.dart';
@@ -14,17 +16,128 @@ class TransactionListPage extends StatefulWidget {
 
 class _TransactionListPageState extends State<TransactionListPage> {
   String _filter = 'all';
+  String? _selectedCategoryId;
+
+  List<Category> _availableCategories(CategoryProvider categoryProvider) {
+    if (_filter == 'income') {
+      return categoryProvider.categoriesByType(CategoryType.income);
+    }
+    if (_filter == 'expense') {
+      return categoryProvider.categoriesByType(CategoryType.expense);
+    }
+
+    final all = [
+      ...categoryProvider.categoriesByType(CategoryType.expense),
+      ...categoryProvider.categoriesByType(CategoryType.income),
+    ];
+
+    final dedup = <String, Category>{};
+    for (final c in all) {
+      dedup[c.id] = c;
+    }
+    return dedup.values.toList();
+  }
+
+  String _categoryFilterLabel(CategoryProvider categoryProvider) {
+    if (_selectedCategoryId == null) return 'All categories';
+    final categories = _availableCategories(categoryProvider);
+    for (final c in categories) {
+      if (c.id == _selectedCategoryId) return c.name;
+    }
+    return 'All categories';
+  }
+
+  Future<void> _showCategoryFilterSheet(CategoryProvider categoryProvider) async {
+    final categories = _availableCategories(categoryProvider);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Filter by category', style: AppTheme.h3SemiBold),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.layers_clear, color: AppTheme.neutral700),
+                  title: const Text('All categories'),
+                  trailing: _selectedCategoryId == null
+                      ? const Icon(Icons.check, color: AppTheme.success500)
+                      : null,
+                  onTap: () {
+                    setState(() => _selectedCategoryId = null);
+                    Navigator.pop(context);
+                  },
+                ),
+                if (categories.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'No categories available for this transaction type.',
+                      style: AppTheme.captionMedium.copyWith(
+                        color: AppTheme.neutral500,
+                      ),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: categories.length,
+                      itemBuilder: (context, index) {
+                        final cat = categories[index];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: cat.color.withOpacity(0.12),
+                            child: Icon(cat.icon, color: cat.color, size: 16),
+                          ),
+                          title: Text(cat.name),
+                          trailing: _selectedCategoryId == cat.id
+                              ? const Icon(Icons.check, color: AppTheme.success500)
+                              : null,
+                          onTap: () {
+                            setState(() => _selectedCategoryId = cat.id);
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TransactionProvider>(
-      builder: (context, txnProvider, _) {
+    return Consumer2<TransactionProvider, CategoryProvider>(
+      builder: (context, txnProvider, categoryProvider, _) {
         final allTxns = txnProvider.transactions;
-        final filteredTxns = _filter == 'all'
+        final typeFilteredTxns = _filter == 'all'
             ? allTxns
             : _filter == 'income'
             ? allTxns.where((t) => t.isIncome).toList()
             : allTxns.where((t) => t.isExpense).toList();
+
+        final filteredTxns = _selectedCategoryId == null
+            ? typeFilteredTxns
+            : typeFilteredTxns
+                  .where((t) => t.categoryId == _selectedCategoryId)
+                  .toList();
 
         return RefreshIndicator(
           onRefresh: txnProvider.refresh,
@@ -75,7 +188,10 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     final isActive = _filter == f;
                     return Expanded(
                       child: GestureDetector(
-                        onTap: () => setState(() => _filter = f),
+                        onTap: () => setState(() {
+                          _filter = f;
+                          _selectedCategoryId = null;
+                        }),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
                           curve: Curves.easeOutCubic,
@@ -222,16 +338,33 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     ),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.filter_list,
-                          color: AppTheme.neutral900,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Filter',
-                          style: AppTheme.captionMedium.copyWith(
-                            color: AppTheme.neutral900,
+                        GestureDetector(
+                          onTap: () => _showCategoryFilterSheet(categoryProvider),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.neutral100,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.filter_list,
+                                  color: AppTheme.neutral900,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _categoryFilterLabel(categoryProvider),
+                                  style: AppTheme.captionMedium.copyWith(
+                                    color: AppTheme.neutral900,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
