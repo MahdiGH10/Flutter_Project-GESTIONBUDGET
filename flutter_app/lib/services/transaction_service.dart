@@ -1,6 +1,7 @@
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
 import '../repositories/transaction_repository.dart';
+import '../utils/finance_calculator.dart';
 import 'package:uuid/uuid.dart';
 
 /// Service layer for transactions. Delegates persistence to
@@ -53,13 +54,11 @@ class TransactionService {
   }
 
   // ── Computed values (from cache) ────────────────────────────
-  double get totalIncome =>
-      _transactions.where((t) => t.isIncome).fold(0, (sum, t) => sum + t.amount);
+    double get totalIncome => FinanceCalculator.totalIncome(_transactions);
 
-  double get totalExpense =>
-      _transactions.where((t) => t.isExpense).fold(0, (sum, t) => sum + t.amount);
+    double get totalExpense => FinanceCalculator.totalExpense(_transactions);
 
-  double get balance => totalIncome - totalExpense;
+    double get balance => FinanceCalculator.balance(_transactions);
 
   List<Transaction> getByCategory(String categoryId) =>
       _transactions.where((t) => t.categoryId == categoryId).toList();
@@ -72,19 +71,11 @@ class TransactionService {
           .where((t) => t.date.isAfter(start) && t.date.isBefore(end))
           .toList();
 
-  Map<String, double> getExpenseByCategory() {
-    final map = <String, double>{};
-    for (final t in _transactions.where((t) => t.isExpense)) {
-      map[t.categoryId] = (map[t.categoryId] ?? 0) + t.amount;
-    }
-    return map;
-  }
+  Map<String, double> getExpenseByCategory() =>
+      FinanceCalculator.expenseTotalsByCategory(_transactions);
 
-  double getSpentForCategory(String categoryId) {
-    return _transactions
-        .where((t) => t.isExpense && t.categoryId == categoryId)
-        .fold(0, (sum, t) => sum + t.amount);
-  }
+  double getSpentForCategory(String categoryId) =>
+      FinanceCalculator.spentForCategory(_transactions, categoryId);
 
   List<MapEntry<String, double>> getDailyExpenses(int days) {
     final now = DateTime.now();

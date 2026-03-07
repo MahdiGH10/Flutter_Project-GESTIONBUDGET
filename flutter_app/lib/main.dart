@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/transaction_provider.dart';
@@ -13,6 +15,7 @@ import 'views/dashboard/home_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _initializeDatabaseFactory();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -23,6 +26,22 @@ void main() async {
     ),
   );
   runApp(const GestionBudgetaireApp());
+}
+
+Future<void> _initializeDatabaseFactory() async {
+  if (kIsWeb) {
+    return;
+  }
+
+  final isDesktop =
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.linux ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+
+  if (isDesktop) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
 }
 
 class GestionBudgetaireApp extends StatelessWidget {

@@ -1,6 +1,7 @@
 import '../models/budget_goal_model.dart';
 import '../models/transaction_model.dart';
 import '../repositories/budget_repository.dart';
+import '../utils/finance_calculator.dart';
 import 'package:uuid/uuid.dart';
 
 /// Service layer for budget goals. Delegates persistence to
@@ -77,13 +78,11 @@ class BudgetService {
 
     for (int i = 0; i < _goals.length; i++) {
       final goal = _goals[i];
-      final spent = transactions
-          .where((t) =>
-              t.isExpense &&
-              t.categoryId == goal.categoryId &&
-              t.date.year == goal.month.year &&
-              t.date.month == goal.month.month)
-          .fold<double>(0.0, (double sum, t) => sum + t.amount);
+      final spent = FinanceCalculator.spentForCategoryInMonth(
+        transactions,
+        categoryId: goal.categoryId,
+        month: goal.month,
+      );
 
       if ((goal.currentAmount - spent).abs() > 0.001) {
         await _repo.updateProgress(goal.id, spent, userId: userId);
