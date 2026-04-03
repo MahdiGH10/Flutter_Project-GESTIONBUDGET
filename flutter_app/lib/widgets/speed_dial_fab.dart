@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 
 class SpeedDialFab extends StatefulWidget {
@@ -20,7 +21,7 @@ class SpeedDialFab extends StatefulWidget {
 class _SpeedDialFabState extends State<SpeedDialFab>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _menuOpacity;
   late final Animation<double> _rotationAnimation;
   bool _isOpen = false;
 
@@ -29,11 +30,12 @@ class _SpeedDialFabState extends State<SpeedDialFab>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 320),
     );
-    _scaleAnimation = CurvedAnimation(
+    _menuOpacity = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutBack,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     );
     _rotationAnimation = Tween<double>(
       begin: 0,
@@ -47,175 +49,224 @@ class _SpeedDialFabState extends State<SpeedDialFab>
     super.dispose();
   }
 
+  void _openMenu() {
+    setState(() => _isOpen = true);
+    _controller.forward();
+  }
+
+  void _closeMenu() {
+    setState(() => _isOpen = false);
+    _controller.reverse();
+  }
+
   void _toggle() {
-    setState(() => _isOpen = !_isOpen);
-    if (_isOpen) {
-      _controller.forward();
-    } else {
-      _controller.reverse();
-    }
+    HapticFeedback.selectionClick();
+    _isOpen ? _closeMenu() : _openMenu();
+  }
+
+  void _onActionTap(VoidCallback action) {
+    HapticFeedback.lightImpact();
+    _closeMenu();
+    action();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.bottomRight,
-      clipBehavior: Clip.none,
-      children: [
-        if (_isOpen)
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _toggle,
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.black.withValues(alpha: 0.18)),
-            ),
-          ),
+    final actions = [
+      _SpeedDialEntry(
+        label: 'Add income',
+        icon: Icons.arrow_downward_rounded,
+        accent: AppTheme.success500,
+        onTap: widget.onAddIncome,
+      ),
+      _SpeedDialEntry(
+        label: 'Add expense',
+        icon: Icons.arrow_upward_rounded,
+        accent: AppTheme.danger500,
+        onTap: widget.onAddExpense,
+      ),
+      _SpeedDialEntry(
+        label: 'Budget goals',
+        icon: Icons.flag_rounded,
+        accent: AppTheme.primary900,
+        onTap: widget.onOpenGoals,
+      ),
+    ];
 
-        // Income button
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutBack,
-          bottom: _isOpen ? 136 : 0,
-          right: _isOpen ? 52 : 24,
-          child: _isOpen
-              ? ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: _SpeedDialAction(
-                    heroTag: 'fab_income',
-                    tooltip: 'Add Income',
-                    icon: Icons.arrow_downward,
-                    color: AppTheme.success500,
-                    onTap: () {
-                      _toggle();
-                      widget.onAddIncome();
-                    },
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-
-        // Expense button
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutBack,
-          bottom: _isOpen ? 84 : 0,
-          right: _isOpen ? 12 : 24,
-          child: _isOpen
-              ? ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: _SpeedDialAction(
-                    heroTag: 'fab_expense',
-                    tooltip: 'Add Expense',
-                    icon: Icons.arrow_upward,
-                    color: AppTheme.danger500,
-                    onTap: () {
-                      _toggle();
-                      widget.onAddExpense();
-                    },
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-
-        // Budget goals button
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutBack,
-          bottom: _isOpen ? 192 : 0,
-          right: _isOpen ? 12 : 24,
-          child: _isOpen
-              ? ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: _SpeedDialAction(
-                    heroTag: 'fab_goals',
-                    tooltip: 'Budget Goals',
-                    icon: Icons.track_changes,
-                    color: AppTheme.primary900,
-                    onTap: () {
-                      _toggle();
-                      widget.onOpenGoals();
-                    },
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-
-        // Main FAB
-        RotationTransition(
-          turns: _rotationAnimation,
-          child: FloatingActionButton(
-            onPressed: _toggle,
-            backgroundColor: AppTheme.primary900,
-            elevation: 8,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                _isOpen ? Icons.close : Icons.add,
-                key: ValueKey(_isOpen),
-                color: Colors.white,
-                size: 24,
+    return SizedBox(
+      width: 220,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          IgnorePointer(
+            ignoring: !_isOpen,
+            child: AnimatedOpacity(
+              opacity: _isOpen ? 1 : 0,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: List.generate(actions.length, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _SpeedDialActionTile(
+                      index: index,
+                      controller: _controller,
+                      opacity: _menuOpacity,
+                      entry: actions[index],
+                      onTap: () => _onActionTap(actions[index].onTap),
+                    ),
+                  );
+                }),
               ),
             ),
           ),
-        ),
-      ],
+          Tooltip(
+            message: _isOpen ? 'Close quick actions' : 'Open quick actions',
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: _isOpen
+                      ? [AppTheme.primary700, AppTheme.primary900]
+                      : [AppTheme.primary800, AppTheme.primary900],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary900.withValues(
+                      alpha: _isOpen ? 0.30 : 0.22,
+                    ),
+                    blurRadius: _isOpen ? 24 : 16,
+                    offset: Offset(0, _isOpen ? 10 : 6),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: _toggle,
+                  child: Center(
+                    child: RotationTransition(
+                      turns: _rotationAnimation,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: Icon(
+                          _isOpen ? Icons.close_rounded : Icons.add_rounded,
+                          key: ValueKey(_isOpen),
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _SpeedDialAction extends StatefulWidget {
-  final String heroTag;
-  final String tooltip;
+class _SpeedDialEntry {
+  final String label;
   final IconData icon;
-  final Color color;
+  final Color accent;
   final VoidCallback onTap;
 
-  const _SpeedDialAction({
-    required this.heroTag,
-    required this.tooltip,
+  const _SpeedDialEntry({
+    required this.label,
     required this.icon,
-    required this.color,
+    required this.accent,
+    required this.onTap,
+  });
+}
+
+class _SpeedDialActionTile extends StatelessWidget {
+  final int index;
+  final AnimationController controller;
+  final Animation<double> opacity;
+  final _SpeedDialEntry entry;
+  final VoidCallback onTap;
+
+  const _SpeedDialActionTile({
+    required this.index,
+    required this.controller,
+    required this.opacity,
+    required this.entry,
     required this.onTap,
   });
 
   @override
-  State<_SpeedDialAction> createState() => _SpeedDialActionState();
-}
-
-class _SpeedDialActionState extends State<_SpeedDialAction> {
-  bool _isPressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: widget.tooltip,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        child: AnimatedContainer(
-          key: ValueKey(widget.heroTag),
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOut,
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+    final start = (index * 0.10).clamp(0.0, 0.45);
+    final end = (start + 0.45).clamp(0.0, 1.0);
+    final itemAnimation = CurvedAnimation(
+      parent: controller,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    return FadeTransition(
+      opacity: opacity,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.22, 0.08),
+          end: Offset.zero,
+        ).animate(itemAnimation),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary900.withValues(alpha: 0.10),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Icon(
-            widget.icon,
-            size: 18,
-            color: _isPressed ? widget.color : AppTheme.neutral500,
-          ),
+              child: Text(
+                entry.label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.neutral700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              elevation: 3,
+              shadowColor: AppTheme.primary900.withValues(alpha: 0.14),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onTap,
+                child: SizedBox(
+                  width: 46,
+                  height: 46,
+                  child: Icon(entry.icon, size: 20, color: entry.accent),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
