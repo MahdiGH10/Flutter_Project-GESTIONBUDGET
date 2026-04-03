@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
@@ -90,6 +89,32 @@ class AuthProvider extends ChangeNotifier {
       _error = e.toString();
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<bool> updateProfile({
+    String? fullName,
+    String? email,
+    String? currency,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.updateProfile(
+        fullName: fullName,
+        email: email,
+        currency: currency,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
     }
   }
 

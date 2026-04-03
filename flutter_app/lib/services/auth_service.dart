@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 
 class AuthService {
@@ -9,16 +10,32 @@ class AuthService {
   UserModel? get currentUser => _currentUser;
   bool get isLoggedIn => _firebaseAuth.currentUser != null;
 
+  String _currencyKey(String uid) => 'user_currency_$uid';
+
+  Future<String> _loadCurrency(String uid) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_currencyKey(uid)) ?? 'TND';
+  }
+
+  Future<void> _saveCurrency(String uid, String currency) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_currencyKey(uid), currency);
+  }
+
   /// Stream of auth state changes (login/logout)
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
 
   /// Convert Firebase User to our UserModel
-  UserModel _userFromFirebase(User firebaseUser, {String? displayName}) {
+  UserModel _userFromFirebase(
+    User firebaseUser, {
+    String? displayName,
+    String currency = 'TND',
+  }) {
     return UserModel(
       id: firebaseUser.uid,
       fullName: displayName ?? firebaseUser.displayName ?? 'User',
       email: firebaseUser.email ?? '',
-      currency: 'TND',
+      currency: currency,
     );
   }
 
@@ -26,7 +43,8 @@ class AuthService {
   Future<UserModel?> tryAutoLogin() async {
     final firebaseUser = _firebaseAuth.currentUser;
     if (firebaseUser != null) {
-      _currentUser = _userFromFirebase(firebaseUser);
+      final currency = await _loadCurrency(firebaseUser.uid);
+      _currentUser = _userFromFirebase(firebaseUser, currency: currency);
       return _currentUser;
     }
     return null;
@@ -38,7 +56,9 @@ class AuthService {
         email: email.trim(),
         password: password,
       );
-      _currentUser = _userFromFirebase(credential.user!);
+      final user = credential.user!;
+      final currency = await _loadCurrency(user.uid);
+      _currentUser = _userFromFirebase(user, currency: currency);
       return _currentUser!;
     } on FirebaseAuthException catch (e) {
       throw _mapFirebaseError(e.code);
@@ -60,8 +80,12 @@ class AuthService {
       // Set display name
       await credential.user!.updateDisplayName(fullName);
 
-      _currentUser = _userFromFirebase(credential.user!, displayName: fullName);
-      _currentUser = _currentUser!.copyWith(currency: currency);
+      await _saveCurrency(credential.user!.uid, currency);
+      _currentUser = _userFromFirebase(
+        credential.user!,
+        displayName: fullName,
+        currency: currency,
+      );
       return _currentUser!;
     } on FirebaseAuthException catch (e) {
       throw _mapFirebaseError(e.code);
@@ -81,16 +105,23 @@ class AuthService {
     final firebaseUser = _firebaseAuth.currentUser;
     if (firebaseUser == null || _currentUser == null) return;
 
-    if (fullName != null) {
-      await firebaseUser.updateDisplayName(fullName);
+    if (fullName != null && fullName.trim().isNotEmpty) {
+      await firebaseUser.updateDisplayName(fullName.trim());
     }
-    if (email != null) {
-      await firebaseUser.verifyBeforeUpdateEmail(email);
+    if (email != null && email.trim().isNotEmpty) {
+      final normalizedEmail = email.trim();
+      if (normalizedEmail != (firebaseUser.email ?? '').trim()) {
+        await firebaseUser.verifyBeforeUpdateEmail(normalizedEmail);
+      }
+    }
+
+    if (currency != null && currency.isNotEmpty) {
+      await _saveCurrency(firebaseUser.uid, currency);
     }
 
     _currentUser = _currentUser!.copyWith(
-      fullName: fullName,
-      email: email,
+      fullName: fullName?.trim(),
+      email: email?.trim(),
       currency: currency,
     );
   }

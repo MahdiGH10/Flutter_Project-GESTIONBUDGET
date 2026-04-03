@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/category_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/category_provider.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_page.dart';
+import 'budget_goal_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -18,6 +20,12 @@ class _ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
   bool _darkMode = false;
   late AnimationController _animController;
+
+  static const Map<String, String> _currencyOptions = {
+    'TND': 'TND - Tunisian Dinar',
+    'USD': 'USD - US Dollar',
+    'EUR': 'EUR - Euro',
+  };
 
   @override
   void initState() {
@@ -35,45 +43,220 @@ class _ProfilePageState extends State<ProfilePage>
     super.dispose();
   }
 
+  String _currencyLabel(String? code) {
+    if (code == null || code.isEmpty) return 'TND - Tunisian Dinar';
+    return _currencyOptions[code] ?? code;
+  }
+
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Future<void> _showEditProfileDialog(AuthProvider authProvider) async {
+    final nameController = TextEditingController(
+      text: authProvider.currentUser?.fullName ?? '',
+    );
+    final emailController = TextEditingController(
+      text: authProvider.currentUser?.email ?? '',
+    );
+
+    final payload = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Account Settings'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(hintText: 'Full name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(hintText: 'Email address'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, {
+                  'fullName': nameController.text.trim(),
+                  'email': emailController.text.trim(),
+                });
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || payload == null) return;
+
+    final success = await authProvider.updateProfile(
+      fullName: payload['fullName'],
+      email: payload['email'],
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      _showInfoSnackBar('Profile updated successfully.');
+    } else {
+      _showInfoSnackBar(authProvider.error ?? 'Failed to update profile.');
+      authProvider.clearError();
+    }
+  }
+
+  Future<void> _showCurrencyPicker(AuthProvider authProvider) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        final current = authProvider.currentUser?.currency ?? 'TND';
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Choose currency', style: AppTheme.h3SemiBold),
+                const SizedBox(height: 8),
+                ..._currencyOptions.entries.map(
+                  (entry) => ListTile(
+                    title: Text(entry.value),
+                    trailing: current == entry.key
+                        ? const Icon(Icons.check, color: AppTheme.success500)
+                        : null,
+                    onTap: () => Navigator.pop(sheetContext, entry.key),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || selected == null) return;
+
+    final success = await authProvider.updateProfile(currency: selected);
+    if (!mounted) return;
+
+    if (success) {
+      _showInfoSnackBar('Currency updated to ${_currencyLabel(selected)}.');
+    } else {
+      _showInfoSnackBar(authProvider.error ?? 'Failed to update currency.');
+      authProvider.clearError();
+    }
+  }
+
+  void _handleMenuTap(_ProfileAction action, AuthProvider authProvider) {
+    switch (action) {
+      case _ProfileAction.account:
+        _showEditProfileDialog(authProvider);
+        return;
+      case _ProfileAction.notifications:
+        _showInfoSnackBar('Notifications settings are coming soon.');
+        return;
+      case _ProfileAction.currency:
+        _showCurrencyPicker(authProvider);
+        return;
+      case _ProfileAction.darkMode:
+        return;
+      case _ProfileAction.budgetGoals:
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const BudgetGoalPage()));
+        return;
+      case _ProfileAction.privacy:
+        _showInfoSnackBar('Privacy & security settings are coming soon.');
+        return;
+      case _ProfileAction.support:
+        _showInfoSnackBar('Help & support is coming soon.');
+        return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final txnProvider = context.watch<TransactionProvider>();
+    final budgetProvider = context.watch<BudgetProvider>();
+    final categoryProvider = context.watch<CategoryProvider>();
+
     final user = authProvider.currentUser;
     final userName = user?.fullName ?? 'User';
     final userEmail = user?.email ?? '';
     final userInitials = user?.initials ?? '?';
+    final userCurrency = _currencyLabel(user?.currency);
+
+    final allCategories = [
+      ...categoryProvider.categoriesByType(CategoryType.expense),
+      ...categoryProvider.categoriesByType(CategoryType.income),
+    ];
+    final uniqueCategoryCount = {for (final c in allCategories) c.id: c}.length;
 
     final menuItems = [
       _MenuItem(
+        action: _ProfileAction.account,
         icon: Icons.person_outline,
         name: 'Account Settings',
-        subtitle: 'Personal info, security',
+        subtitle: 'Edit name and email',
       ),
       _MenuItem(
+        action: _ProfileAction.notifications,
         icon: Icons.notifications_none,
         name: 'Notifications',
         subtitle: 'Push, email, SMS',
       ),
       _MenuItem(
+        action: _ProfileAction.currency,
         icon: Icons.language,
         name: 'Currency',
-        subtitle: 'TND - Tunisian Dinar',
+        subtitle: userCurrency,
       ),
       _MenuItem(
+        action: _ProfileAction.budgetGoals,
+        icon: Icons.track_changes,
+        name: 'Budget Goals',
+        subtitle: 'Manage your monthly limits',
+      ),
+      _MenuItem(
+        action: _ProfileAction.darkMode,
         icon: Icons.dark_mode_outlined,
         name: 'Dark Mode',
         subtitle: 'System default',
         isToggle: true,
       ),
       _MenuItem(
+        action: _ProfileAction.privacy,
         icon: Icons.shield_outlined,
         name: 'Privacy & Security',
-        subtitle: 'Password, biometrics',
+        subtitle: 'Coming soon',
       ),
       _MenuItem(
+        action: _ProfileAction.support,
         icon: Icons.help_outline,
         name: 'Help & Support',
-        subtitle: 'FAQ, contact us',
+        subtitle: 'Coming soon',
       ),
     ];
 
@@ -169,31 +352,37 @@ class _ProfilePageState extends State<ProfilePage>
                   const SizedBox(height: 16),
                   Text(userName, style: AppTheme.h3SemiBold),
                   const SizedBox(height: 4),
-                  Text(
-                    userEmail,
-                    style: AppTheme.captionRegular,
-                  ),
+                  Text(userEmail, style: AppTheme.captionRegular),
                   const SizedBox(height: 20),
 
                   // Stats
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _ProfileStat(label: 'Transactions', value: '156'),
+                      _ProfileStat(
+                        label: 'Transactions',
+                        value: '${txnProvider.transactions.length}',
+                      ),
                       Container(
                         width: 1,
                         height: 32,
                         color: AppTheme.neutral200,
                         margin: const EdgeInsets.symmetric(horizontal: 24),
                       ),
-                      _ProfileStat(label: 'Categories', value: '12'),
+                      _ProfileStat(
+                        label: 'Categories',
+                        value: '$uniqueCategoryCount',
+                      ),
                       Container(
                         width: 1,
                         height: 32,
                         color: AppTheme.neutral200,
                         margin: const EdgeInsets.symmetric(horizontal: 24),
                       ),
-                      _ProfileStat(label: 'Goals', value: '5'),
+                      _ProfileStat(
+                        label: 'Goals',
+                        value: '${budgetProvider.goals.length}',
+                      ),
                     ],
                   ),
                 ],
@@ -251,7 +440,10 @@ class _ProfilePageState extends State<ProfilePage>
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: () {},
+                            onTap: item.isToggle
+                                ? null
+                                : () =>
+                                      _handleMenuTap(item.action, authProvider),
                             borderRadius: BorderRadius.vertical(
                               top: index == 0
                                   ? const Radius.circular(24)
@@ -308,7 +500,7 @@ class _ProfilePageState extends State<ProfilePage>
                                       value: _darkMode,
                                       onChanged: (v) =>
                                           setState(() => _darkMode = v),
-                                      activeColor: AppTheme.success500,
+                                      activeThumbColor: AppTheme.success500,
                                     )
                                   else
                                     const Icon(
@@ -364,7 +556,7 @@ class _ProfilePageState extends State<ProfilePage>
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.danger500.withOpacity(0.1),
+                    backgroundColor: AppTheme.danger500.withValues(alpha: 0.1),
                     foregroundColor: AppTheme.danger500,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -413,15 +605,27 @@ class _ProfileStat extends StatelessWidget {
 }
 
 class _MenuItem {
+  final _ProfileAction action;
   final IconData icon;
   final String name;
   final String subtitle;
   final bool isToggle;
 
   _MenuItem({
+    required this.action,
     required this.icon,
     required this.name,
     required this.subtitle,
     this.isToggle = false,
   });
+}
+
+enum _ProfileAction {
+  account,
+  notifications,
+  currency,
+  budgetGoals,
+  darkMode,
+  privacy,
+  support,
 }
