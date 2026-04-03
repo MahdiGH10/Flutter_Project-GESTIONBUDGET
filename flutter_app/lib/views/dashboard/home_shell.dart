@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import '../../models/category_model.dart';
 import '../../theme/app_theme.dart';
 import '../dashboard/dashboard_page.dart';
 import '../transaction/transaction_list_page.dart';
+import '../transaction/add_transaction_page.dart';
+import '../category/category_page.dart';
 import '../report/report_page.dart';
+import '../settings/budget_goal_page.dart';
 import '../settings/profile_page.dart';
+import '../../widgets/speed_dial_fab.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -22,18 +27,30 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     _pages = const [
       DashboardPage(),
       TransactionListPage(),
+      CategoryPage(),
       ReportPage(),
       ProfilePage(),
     ];
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   void _onTabTapped(int index) {
     setState(() => _currentIndex = index);
+  }
+
+  void _openAddTransaction({required bool isIncome}) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AddTransactionPage(
+          initialType: isIncome ? CategoryType.income : CategoryType.expense,
+        ),
+      ),
+    );
+  }
+
+  void _openBudgetGoals() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const BudgetGoalPage()));
   }
 
   @override
@@ -48,12 +65,17 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
           child: _pages[_currentIndex],
         ),
       ),
+      floatingActionButton: SpeedDialFab(
+        onAddIncome: () => _openAddTransaction(isIncome: true),
+        onAddExpense: () => _openAddTransaction(isIncome: false),
+        onOpenGoals: _openBudgetGoals,
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primary900.withOpacity(0.05),
+              color: AppTheme.primary900.withValues(alpha: 0.05),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -80,18 +102,25 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
                   onTap: () => _onTabTapped(1),
                 ),
                 _NavItem(
+                  icon: Icons.category_outlined,
+                  activeIcon: Icons.category,
+                  label: 'Categories',
+                  isActive: _currentIndex == 2,
+                  onTap: () => _onTabTapped(2),
+                ),
+                _NavItem(
                   icon: Icons.pie_chart_outline,
                   activeIcon: Icons.pie_chart,
                   label: 'Stats',
-                  isActive: _currentIndex == 2,
-                  onTap: () => _onTabTapped(2),
+                  isActive: _currentIndex == 3,
+                  onTap: () => _onTabTapped(3),
                 ),
                 _NavItem(
                   icon: Icons.person_outline,
                   activeIcon: Icons.person,
                   label: 'Profile',
-                  isActive: _currentIndex == 3,
-                  onTap: () => _onTabTapped(3),
+                  isActive: _currentIndex == 4,
+                  onTap: () => _onTabTapped(4),
                 ),
               ],
             ),

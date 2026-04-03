@@ -4,11 +4,13 @@ import '../theme/app_theme.dart';
 class SpeedDialFab extends StatefulWidget {
   final VoidCallback onAddIncome;
   final VoidCallback onAddExpense;
+  final VoidCallback onOpenGoals;
 
   const SpeedDialFab({
     super.key,
     required this.onAddIncome,
     required this.onAddExpense,
+    required this.onOpenGoals,
   });
 
   @override
@@ -65,7 +67,7 @@ class _SpeedDialFabState extends State<SpeedDialFab>
             child: GestureDetector(
               onTap: _toggle,
               behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.black.withOpacity(0.18)),
+              child: Container(color: Colors.black.withValues(alpha: 0.18)),
             ),
           ),
 
@@ -109,6 +111,29 @@ class _SpeedDialFabState extends State<SpeedDialFab>
                     onTap: () {
                       _toggle();
                       widget.onAddExpense();
+                    },
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+
+        // Budget goals button
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutBack,
+          bottom: _isOpen ? 192 : 0,
+          right: _isOpen ? 12 : 24,
+          child: _isOpen
+              ? ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: _SpeedDialAction(
+                    heroTag: 'fab_goals',
+                    tooltip: 'Budget Goals',
+                    icon: Icons.track_changes,
+                    color: AppTheme.primary900,
+                    onTap: () {
+                      _toggle();
+                      widget.onOpenGoals();
                     },
                   ),
                 )
@@ -180,7 +205,7 @@ class _SpeedDialActionState extends State<_SpeedDialAction> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.12),
+                color: Colors.black.withValues(alpha: 0.12),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
