@@ -24,6 +24,64 @@ class _ReportPageState extends State<ReportPage>
   String _timeRange = 'month'; // day | week | month | year
   late AnimationController _animController;
 
+  void _showInsightsSheet({
+    required double income,
+    required double expense,
+    required double balance,
+    required Map<String, double> expenseByCategory,
+    required Map<String, Category> categoryLookup,
+  }) {
+    final topEntry = expenseByCategory.entries.isEmpty
+        ? null
+        : expenseByCategory.entries.reduce(
+            (a, b) => a.value >= b.value ? a : b,
+          );
+
+    final topCategoryName = topEntry == null
+        ? 'N/A'
+        : (categoryLookup[topEntry.key]?.name ?? topEntry.key);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Financial Insights', style: AppTheme.h3SemiBold),
+                const SizedBox(height: 12),
+                _InsightRow(
+                  label: 'Income',
+                  value: '${income.toStringAsFixed(2)} TND',
+                ),
+                _InsightRow(
+                  label: 'Expense',
+                  value: '${expense.toStringAsFixed(2)} TND',
+                ),
+                _InsightRow(
+                  label: 'Balance',
+                  value: '${balance.toStringAsFixed(2)} TND',
+                ),
+                _InsightRow(
+                  label: 'Top expense category',
+                  value: topCategoryName,
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +112,9 @@ class _ReportPageState extends State<ReportPage>
         final saved = totalIncome - totalExpense;
 
         final expenseByCategory = _getExpenseByCategory(filteredTxns);
-        final monthlyIncomeExpense = _getMonthlyIncomeExpenseSeries(filteredTxns);
+        final monthlyIncomeExpense = _getMonthlyIncomeExpenseSeries(
+          filteredTxns,
+        );
         final balanceSeries = monthlyIncomeExpense
             .map((e) => MapEntry(e.label, e.income - e.expense))
             .toList();
@@ -69,11 +129,23 @@ class _ReportPageState extends State<ReportPage>
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 child: Row(
                   children: [
-                    Text('Statistics', style: AppTheme.h2Bold.copyWith(fontSize: 20)),
+                    Text(
+                      'Statistics',
+                      style: AppTheme.h2Bold.copyWith(fontSize: 20),
+                    ),
                     const Spacer(),
                     IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.insights, color: AppTheme.neutral900),
+                      onPressed: () => _showInsightsSheet(
+                        income: totalIncome,
+                        expense: totalExpense,
+                        balance: saved,
+                        expenseByCategory: expenseByCategory,
+                        categoryLookup: categoryLookup,
+                      ),
+                      icon: const Icon(
+                        Icons.insights,
+                        color: AppTheme.neutral900,
+                      ),
                       style: IconButton.styleFrom(
                         backgroundColor: AppTheme.neutral100,
                         shape: RoundedRectangleBorder(
@@ -112,8 +184,12 @@ class _ReportPageState extends State<ReportPage>
                             range,
                             textAlign: TextAlign.center,
                             style: AppTheme.captionMedium.copyWith(
-                              color: isActive ? AppTheme.neutral900 : AppTheme.neutral500,
-                              fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                              color: isActive
+                                  ? AppTheme.neutral900
+                                  : AppTheme.neutral500,
+                              fontWeight: isActive
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
                               fontSize: 13,
                             ),
                           ),
@@ -131,7 +207,8 @@ class _ReportPageState extends State<ReportPage>
                   padding: const EdgeInsets.fromLTRB(20, 40, 20, 100),
                   child: EmptyState(
                     title: 'No data yet',
-                    message: 'Add transactions to see your statistics and insights.',
+                    message:
+                        'Add transactions to see your statistics and insights.',
                     icon: Icons.insights_outlined,
                   ),
                 ),
@@ -177,9 +254,15 @@ class _ReportPageState extends State<ReportPage>
                     children: [
                       Row(
                         children: [
-                          _LegendDot(color: AppTheme.success500, label: 'Income'),
+                          _LegendDot(
+                            color: AppTheme.success500,
+                            label: 'Income',
+                          ),
                           const SizedBox(width: 12),
-                          _LegendDot(color: AppTheme.danger500, label: 'Expense'),
+                          _LegendDot(
+                            color: AppTheme.danger500,
+                            label: 'Expense',
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -209,9 +292,15 @@ class _ReportPageState extends State<ReportPage>
                         gridData: const FlGridData(show: false),
                         borderData: FlBorderData(show: false),
                         titlesData: FlTitlesData(
-                          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                           bottomTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
@@ -222,7 +311,10 @@ class _ReportPageState extends State<ReportPage>
                                 }
                                 return Padding(
                                   padding: const EdgeInsets.only(top: 8),
-                                  child: Text(balanceSeries[idx].key, style: AppTheme.smallMedium),
+                                  child: Text(
+                                    balanceSeries[idx].key,
+                                    style: AppTheme.smallMedium,
+                                  ),
                                 );
                               },
                             ),
@@ -233,7 +325,10 @@ class _ReportPageState extends State<ReportPage>
                             spots: balanceSeries
                                 .asMap()
                                 .entries
-                                .map((e) => FlSpot(e.key.toDouble(), e.value.value))
+                                .map(
+                                  (e) =>
+                                      FlSpot(e.key.toDouble(), e.value.value),
+                                )
                                 .toList(),
                             color: AppTheme.primary900,
                             barWidth: 3,
@@ -274,8 +369,16 @@ class _ReportPageState extends State<ReportPage>
 
     final start = switch (_timeRange) {
       'day' => DateTime(now.year, now.month, now.day),
-      'week' => DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6)),
-      'month' => DateTime(now.year, now.month, now.day).subtract(const Duration(days: 29)),
+      'week' => DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(const Duration(days: 6)),
+      'month' => DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(const Duration(days: 29)),
       _ => DateTime(now.year - 1, now.month, now.day),
     };
 
@@ -304,10 +407,20 @@ class _ReportPageState extends State<ReportPage>
     return List.generate(months, (index) {
       final month = DateTime(now.year, now.month - (months - 1 - index), 1);
       final income = transactions
-          .where((t) => t.isIncome && t.date.year == month.year && t.date.month == month.month)
+          .where(
+            (t) =>
+                t.isIncome &&
+                t.date.year == month.year &&
+                t.date.month == month.month,
+          )
           .fold<double>(0.0, (sum, t) => sum + t.amount);
       final expense = transactions
-          .where((t) => t.isExpense && t.date.year == month.year && t.date.month == month.month)
+          .where(
+            (t) =>
+                t.isExpense &&
+                t.date.year == month.year &&
+                t.date.month == month.month,
+          )
           .fold<double>(0.0, (sum, t) => sum + t.amount);
       return IncomeExpensePoint(
         label: DateFormat('MMM').format(month),
@@ -320,7 +433,6 @@ class _ReportPageState extends State<ReportPage>
   double _sum(Iterable<Transaction> transactions) {
     return transactions.fold<double>(0.0, (sum, t) => sum + t.amount);
   }
-
 }
 
 class _StatCard extends StatelessWidget {
@@ -405,6 +517,33 @@ class _LegendDot extends StatelessWidget {
         const SizedBox(width: 6),
         Text(label, style: AppTheme.smallMedium),
       ],
+    );
+  }
+}
+
+class _InsightRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InsightRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: AppTheme.captionMedium.copyWith(
+                color: AppTheme.neutral700,
+              ),
+            ),
+          ),
+          Text(value, style: AppTheme.bodySemiBold),
+        ],
+      ),
     );
   }
 }

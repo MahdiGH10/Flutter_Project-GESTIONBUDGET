@@ -272,7 +272,7 @@ class _ProfilePageState extends State<ProfilePage>
                 Text('Profile', style: AppTheme.h2Bold.copyWith(fontSize: 20)),
                 const Spacer(),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () => _showEditProfileDialog(authProvider),
                   icon: const Icon(
                     Icons.settings_outlined,
                     color: AppTheme.neutral900,
@@ -333,17 +333,20 @@ class _ProfilePageState extends State<ProfilePage>
                       Positioned(
                         bottom: 0,
                         right: 0,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: const BoxDecoration(
-                            color: AppTheme.primary900,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.edit,
-                            color: Colors.white,
-                            size: 14,
+                        child: GestureDetector(
+                          onTap: () => _showEditProfileDialog(authProvider),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.primary900,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.edit,
+                              color: Colors.white,
+                              size: 14,
+                            ),
                           ),
                         ),
                       ),
