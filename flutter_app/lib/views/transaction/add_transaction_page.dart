@@ -5,6 +5,7 @@ import '../../models/category_model.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../theme/app_theme.dart';
+import '../dashboard/home_shell.dart';
 
 class AddTransactionPage extends StatefulWidget {
   final CategoryType initialType;
@@ -20,12 +21,29 @@ class AddTransactionPage extends StatefulWidget {
 
 class _AddTransactionPageState extends State<AddTransactionPage>
     with SingleTickerProviderStateMixin {
+  static const int _maxIntegerDigits = 8;
+  static const int _maxFractionDigits = 2;
+
   late CategoryType _type = widget.initialType;
   String _amount = '0';
   String? _selectedCategoryId;
   final _noteController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   late AnimationController _animController;
+  final List<String> _keypadValues = const [
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '.',
+    '0',
+    '⌫',
+  ];
 
   List<Category> _categoriesFromProvider(BuildContext context) {
     return context.read<CategoryProvider>().categoriesByType(_type);
@@ -50,13 +68,29 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   void _handleNumberPress(String num) {
     setState(() {
-      if (_amount == '0' && num != '.') {
-        _amount = num;
-      } else if (num == '.' && _amount.contains('.')) {
+      if (num == '.' && _amount.contains('.')) {
         return;
-      } else {
-        _amount += num;
       }
+
+      if (num == '.') {
+        _amount = '$_amount.';
+        return;
+      }
+
+      final parts = _amount.split('.');
+      final hasFraction = parts.length > 1;
+
+      if (hasFraction) {
+        final fraction = parts[1];
+        if (fraction.length >= _maxFractionDigits) return;
+        _amount += num;
+        return;
+      }
+
+      final integer = parts[0] == '0' ? '' : parts[0];
+      if (integer.length >= _maxIntegerDigits) return;
+
+      _amount = _amount == '0' ? num : _amount + num;
     });
   }
 
@@ -68,6 +102,21 @@ class _AddTransactionPageState extends State<AddTransactionPage>
         _amount = '0';
       }
     });
+  }
+
+  String get _formattedAmount {
+    if (_amount.isEmpty) return '0';
+
+    final parts = _amount.split('.');
+    final rawInteger = parts.first.isEmpty ? '0' : parts.first;
+    final integerNumber = int.tryParse(rawInteger) ?? 0;
+    final formattedInteger = NumberFormat.decimalPattern().format(integerNumber);
+
+    if (parts.length == 1) return formattedInteger;
+
+    final fraction = parts[1];
+    if (_amount.endsWith('.')) return '$formattedInteger.';
+    return '$formattedInteger.$fraction';
   }
 
   Future<void> _handleSubmit() async {
@@ -110,7 +159,38 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             : null,
       );
 
-      if (mounted) Navigator.pop(context);
+      if (!mounted) return;
+      final isIncome = _type == CategoryType.income;
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isIncome
+                  ? 'Income added successfully.'
+                  : 'Expense added successfully.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: isIncome
+                ? AppTheme.success500
+                : AppTheme.danger500,
+            action: SnackBarAction(
+              label: 'View Balance',
+              textColor: Colors.white,
+              onPressed: () {
+                rootNavigator.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const HomeShell()),
+                  (_) => false,
+                );
+              },
+            ),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -210,7 +290,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
                       // Amount Display
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
                         child: Column(
                           children: [
                             Text('Amount', style: AppTheme.captionRegular),
@@ -225,24 +305,33 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                                 );
                               },
                               key: ValueKey(_amount),
-                              child: RichText(
-                                text: TextSpan(
-                                  text: _amount,
-                                  style: AppTheme.amountLarge.copyWith(
-                                    color: _type == CategoryType.income
-                                        ? AppTheme.success500
-                                        : AppTheme.danger500,
-                                  ),
-                                  children: [
-                                    TextSpan(
-                                      text: ' TND',
-                                      style: AppTheme.h2Bold.copyWith(
+                              child: Container(
+                                constraints: const BoxConstraints(minHeight: 56),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                ),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: RichText(
+                                    text: TextSpan(
+                                      text: _formattedAmount,
+                                      style: AppTheme.amountLarge.copyWith(
                                         color: _type == CategoryType.income
                                             ? AppTheme.success500
                                             : AppTheme.danger500,
                                       ),
+                                      children: [
+                                        TextSpan(
+                                          text: ' TND',
+                                          style: AppTheme.h2Bold.copyWith(
+                                            color: _type == CategoryType.income
+                                                ? AppTheme.success500
+                                                : AppTheme.danger500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -263,67 +352,85 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: categories.map((cat) {
-                                final isSelected =
-                                    _selectedCategoryId == cat.id;
-                                return GestureDetector(
-                                  onTap: () => setState(
-                                    () => _selectedCategoryId = cat.id,
-                                  ),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    width:
-                                        (MediaQuery.of(context).size.width -
-                                            76) /
-                                        4,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? AppTheme.primary900
-                                            : AppTheme.neutral200,
-                                        width: isSelected ? 2 : 1,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            color: cat.color.withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(
-                                              12,
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                const spacing = 12.0;
+                                const minTileWidth = 78.0;
+                                final crossAxisCount = (constraints.maxWidth /
+                                        (minTileWidth + spacing))
+                                    .floor()
+                                    .clamp(3, 5);
+                                final tileWidth =
+                                    (constraints.maxWidth -
+                                            ((crossAxisCount - 1) * spacing)) /
+                                        crossAxisCount;
+
+                                return Wrap(
+                                  spacing: spacing,
+                                  runSpacing: spacing,
+                                  children: categories.map((cat) {
+                                    final isSelected = _selectedCategoryId == cat.id;
+                                    return GestureDetector(
+                                      onTap: () =>
+                                          setState(() => _selectedCategoryId = cat.id),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 200),
+                                        width: tileWidth,
+                                        constraints:
+                                            const BoxConstraints(minHeight: 96),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 10,
+                                          horizontal: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? AppTheme.primary900
+                                                : AppTheme.neutral200,
+                                            width: isSelected ? 2 : 1,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Container(
+                                              width: 40,
+                                              height: 40,
+                                              decoration: BoxDecoration(
+                                                color: cat.color.withValues(
+                                                  alpha: 0.15,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Icon(
+                                                cat.icon,
+                                                color: cat.color,
+                                                size: 20,
+                                              ),
                                             ),
-                                          ),
-                                          child: Icon(
-                                            cat.icon,
-                                            color: cat.color,
-                                            size: 22,
-                                          ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              cat.name.split(' ').first,
+                                              style: AppTheme.smallMedium.copyWith(
+                                                color: AppTheme.neutral900,
+                                                fontSize: 11,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          cat.name.split(' ').first,
-                                          style: AppTheme.smallMedium.copyWith(
-                                            color: AppTheme.neutral900,
-                                            fontSize: 11,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                      ),
+                                    );
+                                  }).toList(),
                                 );
-                              }).toList(),
+                              },
                             ),
                           ],
                         ),
@@ -333,10 +440,28 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       // Note input
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: TextField(
-                          controller: _noteController,
-                          decoration: const InputDecoration(
-                            hintText: 'Add a note (optional)',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.neutral100,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: TextField(
+                            controller: _noteController,
+                            minLines: 1,
+                            maxLines: 3,
+                            textInputAction: TextInputAction.done,
+                            decoration: const InputDecoration(
+                              hintText: 'Add a note (optional)',
+                              prefixIcon: Icon(
+                                Icons.edit_note_rounded,
+                                color: AppTheme.neutral500,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 14,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -371,13 +496,21 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                                   size: 20,
                                 ),
                                 const SizedBox(width: 12),
-                                Text(
-                                  DateFormat(
-                                    'EEEE, MMMM d, yyyy',
-                                  ).format(_selectedDate),
-                                  style: AppTheme.captionMedium.copyWith(
-                                    color: AppTheme.neutral900,
+                                Expanded(
+                                  child: Text(
+                                    DateFormat(
+                                      'EEEE, MMMM d, yyyy',
+                                    ).format(_selectedDate),
+                                    style: AppTheme.captionMedium.copyWith(
+                                      color: AppTheme.neutral900,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: AppTheme.neutral500,
+                                  size: 20,
                                 ),
                               ],
                             ),
@@ -389,34 +522,40 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       // Keypad
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: GridView.count(
-                          crossAxisCount: 3,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: 2,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          children: [
-                            ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map(
-                              (n) => _KeypadButton(
-                                label: '$n',
-                                onTap: () => _handleNumberPress('$n'),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            const columns = 3;
+                            const spacing = 10.0;
+                            final itemWidth =
+                                (constraints.maxWidth - ((columns - 1) * spacing)) /
+                                    columns;
+                            final itemHeight = itemWidth.clamp(56.0, 74.0);
+                            final childAspectRatio = itemWidth / itemHeight;
+
+                            return GridView.builder(
+                              itemCount: _keypadValues.length,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: columns,
+                                childAspectRatio: childAspectRatio,
+                                mainAxisSpacing: spacing,
+                                crossAxisSpacing: spacing,
                               ),
-                            ),
-                            _KeypadButton(
-                              label: '.',
-                              onTap: () => _handleNumberPress('.'),
-                            ),
-                            _KeypadButton(
-                              label: '0',
-                              onTap: () => _handleNumberPress('0'),
-                            ),
-                            _KeypadButton(
-                              label: '⌫',
-                              onTap: _handleBackspace,
-                              isIcon: true,
-                            ),
-                          ],
+                              itemBuilder: (context, index) {
+                                final key = _keypadValues[index];
+                                final isBackspace = key == '⌫';
+                                return _KeypadButton(
+                                  label: key,
+                                  onTap: isBackspace
+                                      ? _handleBackspace
+                                      : () => _handleNumberPress(key),
+                                  isIcon: isBackspace,
+                                );
+                              },
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(height: 16),

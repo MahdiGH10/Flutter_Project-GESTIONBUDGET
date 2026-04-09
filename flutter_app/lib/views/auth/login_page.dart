@@ -23,10 +23,13 @@ class _LoginPageState extends State<LoginPage>
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
+  bool _initialized = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -43,6 +46,7 @@ class _LoginPageState extends State<LoginPage>
           ),
         );
     _animController.forward();
+    context.read<AuthProvider>().initialize();
   }
 
   @override
@@ -63,7 +67,9 @@ class _LoginPageState extends State<LoginPage>
           content: const Text('Veuillez remplir tous les champs'),
           backgroundColor: Colors.red.shade400,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
       return;
@@ -71,7 +77,8 @@ class _LoginPageState extends State<LoginPage>
 
     final auth = context.read<AuthProvider>();
     final success = await auth.login(email, password);
-    if (success && mounted) {
+    if (!mounted) return;
+    if (success) {
       final userId = auth.currentUser?.id;
       if (userId != null) {
         await Future.wait([
@@ -80,23 +87,27 @@ class _LoginPageState extends State<LoginPage>
           context.read<CategoryProvider>().loadForUser(userId),
         ]);
       }
+      if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const HomeShell(),
-          transitionsBuilder: (_, a, __, child) =>
-              FadeTransition(opacity: a, child: child),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const HomeShell(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+              FadeTransition(opacity: animation, child: child),
           transitionDuration: const Duration(milliseconds: 500),
         ),
       );
-    } else if (mounted && auth.error != null) {
+    } else if (auth.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(auth.error!),
           backgroundColor: Colors.red.shade400,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
       auth.clearError();
@@ -129,7 +140,7 @@ class _LoginPageState extends State<LoginPage>
                 height: 160,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.success500.withOpacity(0.1),
+                  color: AppTheme.success500.withValues(alpha: 0.1),
                 ),
               ),
             ),
@@ -141,7 +152,7 @@ class _LoginPageState extends State<LoginPage>
                 height: 200,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.danger500.withOpacity(0.1),
+                  color: AppTheme.danger500.withValues(alpha: 0.1),
                 ),
               ),
             ),
@@ -162,10 +173,10 @@ class _LoginPageState extends State<LoginPage>
                             width: 80,
                             height: 80,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Colors.white.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withValues(alpha: 0.2),
                               ),
                             ),
                             child: const Icon(
@@ -186,7 +197,7 @@ class _LoginPageState extends State<LoginPage>
                           Text(
                             'Sign in to manage your budget',
                             style: AppTheme.captionRegular.copyWith(
-                              color: Colors.white.withOpacity(0.6),
+                              color: Colors.white.withValues(alpha: 0.6),
                             ),
                           ),
                           const SizedBox(height: 40),
@@ -214,7 +225,7 @@ class _LoginPageState extends State<LoginPage>
                                 _showPassword
                                     ? Icons.visibility_off
                                     : Icons.visibility,
-                                color: Colors.white.withOpacity(0.4),
+                                color: Colors.white.withValues(alpha: 0.4),
                                 size: 20,
                               ),
                             ),
@@ -262,36 +273,43 @@ class _LoginPageState extends State<LoginPage>
 
                           // Forgot password
                           TextButton(
-                            onPressed: () {
+                            onPressed: () async {
                               final email = _emailController.text.trim();
                               if (email.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: const Text('Entrez votre email d\'abord'),
+                                    content: const Text(
+                                      'Entrez votre email d\'abord',
+                                    ),
                                     backgroundColor: Colors.orange.shade400,
                                     behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                 );
                                 return;
                               }
-                              context.read<AuthProvider>().resetPassword(email).then((_) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text('Email de réinitialisation envoyé !'),
-                                      backgroundColor: AppTheme.success500,
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
-                                  );
-                                }
-                              });
+                              final authProvider = context.read<AuthProvider>();
+                              final messenger = ScaffoldMessenger.of(context);
+                              await authProvider.resetPassword(email);
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'Email de réinitialisation envoyé !',
+                                  ),
+                                  backgroundColor: AppTheme.success500,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              );
                             },
                             child: Text(
                               'Forgot Password?',
                               style: AppTheme.captionRegular.copyWith(
-                                color: Colors.white.withOpacity(0.6),
+                                color: Colors.white.withValues(alpha: 0.6),
                               ),
                             ),
                           ),
@@ -304,7 +322,7 @@ class _LoginPageState extends State<LoginPage>
                               Text(
                                 "Don't have an account? ",
                                 style: AppTheme.captionRegular.copyWith(
-                                  color: Colors.white.withOpacity(0.4),
+                                  color: Colors.white.withValues(alpha: 0.4),
                                 ),
                               ),
                               GestureDetector(
@@ -312,17 +330,26 @@ class _LoginPageState extends State<LoginPage>
                                   Navigator.push(
                                     context,
                                     PageRouteBuilder(
-                                      pageBuilder: (_, __, ___) =>
-                                          const RegisterPage(),
-                                      transitionsBuilder: (_, a, __, child) =>
-                                          SlideTransition(
+                                      pageBuilder:
+                                          (
+                                            context,
+                                            animation,
+                                            secondaryAnimation,
+                                          ) => const RegisterPage(),
+                                      transitionsBuilder:
+                                          (
+                                            context,
+                                            animation,
+                                            secondaryAnimation,
+                                            child,
+                                          ) => SlideTransition(
                                             position:
                                                 Tween<Offset>(
                                                   begin: const Offset(1, 0),
                                                   end: Offset.zero,
                                                 ).animate(
                                                   CurvedAnimation(
-                                                    parent: a,
+                                                    parent: animation,
                                                     curve: Curves.easeOutCubic,
                                                   ),
                                                 ),
@@ -378,9 +405,9 @@ class _GlassTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
       child: TextField(
         controller: controller,
@@ -390,11 +417,11 @@ class _GlassTextField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: AppTheme.bodyRegular.copyWith(
-            color: Colors.white.withOpacity(0.4),
+            color: Colors.white.withValues(alpha: 0.4),
           ),
           prefixIcon: Icon(
             prefixIcon,
-            color: Colors.white.withOpacity(0.4),
+            color: Colors.white.withValues(alpha: 0.4),
             size: 20,
           ),
           suffixIcon: suffixIcon,

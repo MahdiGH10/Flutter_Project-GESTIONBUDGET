@@ -140,7 +140,7 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                           Text(
                             '${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year} Progress',
                             style: AppTheme.captionRegular.copyWith(
-                              color: Colors.white.withOpacity(0.7),
+                              color: Colors.white.withValues(alpha: 0.7),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -185,10 +185,10 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppTheme.danger500.withOpacity(0.08),
+                          color: AppTheme.danger500.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: AppTheme.danger500.withOpacity(0.35),
+                            color: AppTheme.danger500.withValues(alpha: 0.35),
                           ),
                         ),
                         child: Column(
@@ -278,7 +278,7 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                                     width: 44,
                                     height: 44,
                                     decoration: BoxDecoration(
-                                      color: color.withOpacity(0.2),
+                                      color: color.withValues(alpha: 0.2),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Icon(icon, color: color, size: 22),
@@ -505,7 +505,7 @@ class _BudgetGoalPageState extends State<BudgetGoalPage>
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? cat.color.withOpacity(0.2)
+                                ? cat.color.withValues(alpha: 0.2)
                                 : AppTheme.neutral100,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(

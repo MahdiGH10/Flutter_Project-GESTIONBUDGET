@@ -29,6 +29,17 @@ class TransactionRepository {
         .toList();
   }
 
+  Stream<List<Transaction>> watchAll({required String userId}) {
+    return _collection(userId)
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Transaction.fromMap(doc.data()))
+              .toList(),
+        );
+  }
+
   Future<List<Transaction>> getByType(
     CategoryType type, {
     required String userId,

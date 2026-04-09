@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../models/budget_goal_model.dart';
 import '../models/transaction_model.dart';
 import '../repositories/budget_repository.dart';
@@ -9,18 +11,57 @@ import 'package:uuid/uuid.dart';
 class BudgetService {
   final BudgetRepository _repo = BudgetRepository();
   final _uuid = const Uuid();
+  StreamSubscription<List<BudgetGoal>>? _subscription;
+  String? _subscribedUserId;
 
   List<BudgetGoal> _goals = [];
 
   List<BudgetGoal> get goals => List.unmodifiable(_goals);
 
   /// Load all goals for the given user from Firestore.
-  Future<void> loadForUser(String userId) async {
+  Future<void> loadForUser(
+    String userId, {
+    void Function()? onRealtimeUpdate,
+  }) async {
+    if (_subscribedUserId == userId && _subscription != null) {
+      return;
+    }
+
+    await _subscription?.cancel();
+    _subscription = null;
+    _subscribedUserId = userId;
+
+    final initialLoad = Completer<void>();
+    _subscription = _repo.watchAll(userId: userId).listen(
+      (items) {
+        _goals = items;
+        if (!initialLoad.isCompleted) {
+          initialLoad.complete();
+        }
+        onRealtimeUpdate?.call();
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!initialLoad.isCompleted) {
+          initialLoad.completeError(error, stackTrace);
+        }
+      },
+    );
+
+    await initialLoad.future;
+  }
+
+  Future<void> refreshForUser(String userId) async {
     _goals = await _repo.getAll(userId: userId);
   }
 
   /// Clear the in-memory cache (e.g. on logout).
   void clear() {
+    final sub = _subscription;
+    _subscription = null;
+    _subscribedUserId = null;
+    if (sub != null) {
+      unawaited(sub.cancel());
+    }
     _goals = [];
   }
 

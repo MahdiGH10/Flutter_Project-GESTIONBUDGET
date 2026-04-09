@@ -29,6 +29,16 @@ class BudgetRepository {
     return goals;
   }
 
+  Stream<List<BudgetGoal>> watchAll({required String userId}) {
+    return _collection(userId).snapshots().map((snapshot) {
+      final goals = snapshot.docs
+          .map((doc) => BudgetGoal.fromMap(doc.data()))
+          .toList();
+      goals.sort((a, b) => b.month.compareTo(a.month));
+      return goals;
+    });
+  }
+
   Future<List<BudgetGoal>> getActiveGoals({required String userId}) async {
     final all = await getAll(userId: userId);
     return all.where((g) => g.isActive).toList();

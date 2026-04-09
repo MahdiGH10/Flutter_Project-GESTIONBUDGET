@@ -57,7 +57,8 @@ class _AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<_AuthGate> {
-  bool _dataLoaded = false;
+  bool _isLoadingUserData = false;
+  String? _loadedForUserId;
 
   @override
   void initState() {
@@ -68,14 +69,32 @@ class _AuthGateState extends State<_AuthGate> {
   }
 
   /// Load all user-scoped data from Firestore after authentication.
-  Future<void> _loadUserData(String userId) async {
-    if (_dataLoaded) return;
-    _dataLoaded = true;
-    await Future.wait([
-      context.read<TransactionProvider>().loadForUser(userId),
-      context.read<BudgetProvider>().loadForUser(userId),
-      context.read<CategoryProvider>().loadForUser(userId),
-    ]);
+  ///
+  /// Important: the previous implementation used a single boolean latch.
+  /// If the very first load failed (network/rules/permission), it could stay
+  /// stuck forever with empty UI until logout. This version retries safely.
+  Future<void> _loadUserDataIfNeeded(String userId) async {
+    if (_isLoadingUserData) return;
+    if (_loadedForUserId == userId) return;
+
+    _isLoadingUserData = true;
+    try {
+      debugPrint(
+        'AuthGate loading user data | project=${Firebase.app().options.projectId} | uid=$userId',
+      );
+      await Future.wait([
+        context.read<TransactionProvider>().loadForUser(userId),
+        context.read<BudgetProvider>().loadForUser(userId),
+        context.read<CategoryProvider>().loadForUser(userId),
+      ]);
+      _loadedForUserId = userId;
+    } catch (e, stackTrace) {
+      _loadedForUserId = null;
+      debugPrint('AuthGate user data load failed for $userId: $e');
+      debugPrint('$stackTrace');
+    } finally {
+      _isLoadingUserData = false;
+    }
   }
 
   @override
@@ -117,12 +136,16 @@ class _AuthGateState extends State<_AuthGate> {
         // Route based on auth state
         if (auth.isLoggedIn) {
           // Load user data from Firestore
-          _loadUserData(auth.currentUser!.id);
+          final userId = auth.currentUser?.id;
+          if (userId != null) {
+            _loadUserDataIfNeeded(userId);
+          }
           return const HomeShell();
         }
 
-        // Reset flag so data reloads on next login
-        _dataLoaded = false;
+        // Reset state so data reloads on next login
+        _loadedForUserId = null;
+        _isLoadingUserData = false;
         return const LoginPage();
       },
     );

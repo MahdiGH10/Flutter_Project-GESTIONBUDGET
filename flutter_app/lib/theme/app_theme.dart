@@ -59,7 +59,7 @@ class AppTheme {
     BoxShadow(
       offset: const Offset(0, 2),
       blurRadius: 8,
-      color: primary900.withOpacity(0.06),
+      color: primary900.withValues(alpha: 0.06),
     ),
   ];
 
@@ -67,7 +67,7 @@ class AppTheme {
     BoxShadow(
       offset: const Offset(0, 4),
       blurRadius: 20,
-      color: primary900.withOpacity(0.08),
+      color: primary900.withValues(alpha: 0.08),
     ),
   ];
 
@@ -75,7 +75,7 @@ class AppTheme {
     BoxShadow(
       offset: const Offset(0, 8),
       blurRadius: 30,
-      color: primary900.withOpacity(0.12),
+      color: primary900.withValues(alpha: 0.12),
     ),
   ];
 
@@ -83,7 +83,7 @@ class AppTheme {
     BoxShadow(
       offset: const Offset(0, 25),
       blurRadius: 80,
-      color: primary900.withOpacity(0.15),
+      color: primary900.withValues(alpha: 0.15),
     ),
   ];
 

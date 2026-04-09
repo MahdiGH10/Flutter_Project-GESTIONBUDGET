@@ -54,7 +54,7 @@ class TransactionTile extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(icon, color: color, size: 22),
@@ -146,7 +146,7 @@ class CategoryCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: category.color.withOpacity(0.2),
+                color: category.color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(category.icon, color: category.color, size: 24),
@@ -216,7 +216,7 @@ class BalanceCard extends StatelessWidget {
           Text(
             'Total Balance',
             style: AppTheme.captionRegular.copyWith(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 8),
@@ -276,7 +276,7 @@ class EmptyState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppTheme.primary900.withOpacity(0.08),
+                color: AppTheme.primary900.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -459,7 +459,7 @@ class _BalanceStat extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: iconColor, size: 16),
@@ -471,7 +471,7 @@ class _BalanceStat extends StatelessWidget {
             Text(
               label,
               style: AppTheme.smallMedium.copyWith(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
               ),
             ),
             Text(

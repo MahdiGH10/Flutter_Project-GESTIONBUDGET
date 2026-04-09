@@ -249,13 +249,12 @@ class _DashboardPageState extends State<DashboardPage>
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
                   child: EmptyState(
                     title: 'No recent transactions',
-                    message: 'Your latest activity will appear here once you add a transaction.',
+                    message:
+                        'Your latest activity will appear here once you add a transaction.',
                     icon: Icons.receipt_long,
                     actionLabel: 'Add transaction',
-                    onAction: () => _showAddTransaction(
-                      context,
-                      isIncome: false,
-                    ),
+                    onAction: () =>
+                        _showAddTransaction(context, isIncome: false),
                   ),
                 ),
               )
@@ -292,20 +291,21 @@ class _DashboardPageState extends State<DashboardPage>
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => AddTransactionPage(
-          initialType: isIncome ? CategoryType.income : CategoryType.expense,
-        ),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              ),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            AddTransactionPage(
+              initialType: isIncome
+                  ? CategoryType.income
+                  : CategoryType.expense,
             ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
             child: child,
           );
         },
@@ -346,7 +346,7 @@ class _QuickAction extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 20),

@@ -25,8 +25,23 @@ class CategoryRepository {
   // ── READ ────────────────────────────────────────────────────
   Future<List<Category>> getCustomCategories({required String userId}) async {
     final snapshot = await _collection(userId).get();
-    final docs = snapshot.docs.where((d) => d.data()['is_custom'] == 1);
+    final docs = snapshot.docs.where((d) {
+      final isCustom = d.data()['is_custom'];
+      return isCustom == 1 || isCustom == true;
+    });
     return docs.map((doc) => Category.fromMap(doc.data())).toList();
+  }
+
+  Stream<List<Category>> watchCustomCategories({required String userId}) {
+    return _collection(userId).snapshots().map((snapshot) {
+      final docs = snapshot.docs.where((d) {
+        final isCustom = d.data()['is_custom'];
+        return isCustom == 1 || isCustom == true;
+      });
+      final categories = docs.map((doc) => Category.fromMap(doc.data())).toList();
+      categories.sort((a, b) => a.name.compareTo(b.name));
+      return categories;
+    });
   }
 
   /// Returns all categories for a user: defaults + custom.

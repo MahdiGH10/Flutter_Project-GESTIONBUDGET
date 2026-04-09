@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
 import '../repositories/transaction_repository.dart';
@@ -9,18 +11,57 @@ import 'package:uuid/uuid.dart';
 class TransactionService {
   final TransactionRepository _repo = TransactionRepository();
   final _uuid = const Uuid();
+  StreamSubscription<List<Transaction>>? _subscription;
+  String? _subscribedUserId;
 
   List<Transaction> _transactions = [];
 
   List<Transaction> get transactions => List.unmodifiable(_transactions);
 
   /// Load all transactions for the given user from Firestore.
-  Future<void> loadForUser(String userId) async {
+  Future<void> loadForUser(
+    String userId, {
+    void Function()? onRealtimeUpdate,
+  }) async {
+    if (_subscribedUserId == userId && _subscription != null) {
+      return;
+    }
+
+    await _subscription?.cancel();
+    _subscription = null;
+    _subscribedUserId = userId;
+
+    final initialLoad = Completer<void>();
+    _subscription = _repo.watchAll(userId: userId).listen(
+      (items) {
+        _transactions = items;
+        if (!initialLoad.isCompleted) {
+          initialLoad.complete();
+        }
+        onRealtimeUpdate?.call();
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!initialLoad.isCompleted) {
+          initialLoad.completeError(error, stackTrace);
+        }
+      },
+    );
+
+    await initialLoad.future;
+  }
+
+  Future<void> refreshForUser(String userId) async {
     _transactions = await _repo.getAll(userId: userId);
   }
 
   /// Clear the in-memory cache (e.g. on logout).
   void clear() {
+    final sub = _subscription;
+    _subscription = null;
+    _subscribedUserId = null;
+    if (sub != null) {
+      unawaited(sub.cancel());
+    }
     _transactions = [];
   }
 

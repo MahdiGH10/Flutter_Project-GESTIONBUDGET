@@ -32,9 +32,17 @@ class TransactionProvider extends ChangeNotifier {
     _userId = userId;
     _isLoading = true;
     notifyListeners();
-    await _service.loadForUser(userId);
-    _isLoading = false;
-    notifyListeners();
+    try {
+      await _service.loadForUser(
+        userId,
+        onRealtimeUpdate: () {
+          if (!_isLoading) notifyListeners();
+        },
+      );
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   /// Reload transactions from Firestore for the current user.
@@ -43,16 +51,26 @@ class TransactionProvider extends ChangeNotifier {
     if (!ready) return;
     _isLoading = true;
     notifyListeners();
-    await _service.loadForUser(_userId!);
-    _isLoading = false;
-    notifyListeners();
+    try {
+      await _service.refreshForUser(_userId!);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   /// Clear data on logout.
   void clear() {
     _userId = null;
+    _isLoading = false;
     _service.clear();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _service.clear();
+    super.dispose();
   }
 
   Future<void> addTransaction({

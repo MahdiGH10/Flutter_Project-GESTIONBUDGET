@@ -225,48 +225,57 @@ class _SpeedDialActionTile extends StatelessWidget {
           begin: const Offset(0.22, 0.08),
           end: Offset.zero,
         ).animate(itemAnimation),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary900.withValues(alpha: 0.10),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primary900.withValues(alpha: 0.10),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      entry.label,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.neutral700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    elevation: 3,
+                    shadowColor: AppTheme.primary900.withValues(alpha: 0.14),
+                    child: SizedBox(
+                      width: 46,
+                      height: 46,
+                      child: Icon(entry.icon, size: 20, color: entry.accent),
+                    ),
                   ),
                 ],
               ),
-              child: Text(
-                entry.label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.neutral700,
-                ),
-              ),
             ),
-            const SizedBox(width: 10),
-            Material(
-              color: Colors.white,
-              shape: const CircleBorder(),
-              elevation: 3,
-              shadowColor: AppTheme.primary900.withValues(alpha: 0.14),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onTap,
-                child: SizedBox(
-                  width: 46,
-                  height: 46,
-                  child: Icon(entry.icon, size: 20, color: entry.accent),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
