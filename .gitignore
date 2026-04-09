@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+.vscode/
+plans/
+FIGMA_*.md
+PROFILE_*.md
+design_tokens.json
+figma_tokens.json
+firebase-debug.log
