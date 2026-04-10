@@ -6,6 +6,7 @@ import '../../providers/transaction_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/shared_widgets.dart';
 import 'add_transaction_page.dart';
+import '../dashboard/home_shell.dart';
 
 class TransactionListPage extends StatefulWidget {
   const TransactionListPage({super.key});
@@ -18,6 +19,32 @@ class _TransactionListPageState extends State<TransactionListPage> {
   String _filter = 'all';
   String? _selectedCategoryId;
   String _searchQuery = '';
+
+  Future<void> _openAddTransaction({required bool isIncome}) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddTransactionPage(
+          initialType: isIncome ? CategoryType.income : CategoryType.expense,
+        ),
+      ),
+    );
+
+    if (!mounted || saved != true) return;
+
+    final message = isIncome
+        ? 'Income added successfully.'
+        : 'Expense added successfully.';
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => HomeShell(
+          successMessage: message,
+          successIsIncome: isIncome,
+        ),
+      ),
+      (_) => false,
+    );
+  }
 
   Future<void> _showSearchSheet() async {
     final controller = TextEditingController(text: _searchQuery);
@@ -515,13 +542,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                           'Add your first income or expense to see it here.',
                       icon: Icons.receipt_long,
                       actionLabel: 'Add transaction',
-                      onAction: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const AddTransactionPage(),
-                          ),
-                        );
-                      },
+                      onAction: () => _openAddTransaction(isIncome: false),
                     ),
                   ),
                 )
@@ -534,6 +555,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: TransactionTile(
                           transaction: filteredTxns[index],
+                          categoryLookup: categoryLookup,
                           onDismissed: () async {
                             await txnProvider.deleteTransaction(
                               filteredTxns[index].id,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -5,7 +7,6 @@ import '../../models/category_model.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../theme/app_theme.dart';
-import '../dashboard/home_shell.dart';
 
 class AddTransactionPage extends StatefulWidget {
   final CategoryType initialType;
@@ -28,8 +29,13 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   String _amount = '0';
   String? _selectedCategoryId;
   final _noteController = TextEditingController();
+  final _customCategoryController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   late AnimationController _animController;
+  bool _isSubmitting = false;
+  bool _showSubmitSuccess = false;
+  bool _showSubmitError = false;
+  String _submitStatusText = '';
   final List<String> _keypadValues = const [
     '1',
     '2',
@@ -63,7 +69,14 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   void dispose() {
     _animController.dispose();
     _noteController.dispose();
+    _customCategoryController.dispose();
     super.dispose();
+  }
+
+  bool _isOtherCategory(Category category) {
+    final id = category.id.toLowerCase();
+    final name = category.name.toLowerCase().trim();
+    return id.contains('other') || name == 'other';
   }
 
   void _handleNumberPress(String num) {
@@ -119,7 +132,32 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     return '$formattedInteger.$fraction';
   }
 
+  String _friendlySubmitError(Object error) {
+    final raw = error.toString();
+    final lower = raw.toLowerCase();
+
+    if (error is TimeoutException || lower.contains('timed out')) {
+      return 'Save timed out. Check your internet and try again.';
+    }
+
+    if (lower.contains('permission_denied') ||
+        lower.contains('permission-denied')) {
+      return 'Permission denied by Firestore. Check Firestore API and security rules.';
+    }
+
+    if (lower.contains('firestore api') &&
+        (lower.contains('not been used') || lower.contains('disabled'))) {
+      return 'Firestore API is disabled for this project. Enable it in Google Cloud Console.';
+    }
+
+    return raw.replaceFirst('Bad state: ', '');
+  }
+
   Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
+
+    Timer? slowHintTimer;
+
     final amount = double.tryParse(_amount);
     final categories = _categoriesFromProvider(context);
     Category? selectedCategory;
@@ -129,14 +167,29 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       selectedCategory = null;
     }
 
-    if (amount == null || amount <= 0 || selectedCategory == null) {
+    final isOtherCategory =
+        selectedCategory != null && _isOtherCategory(selectedCategory);
+    final customCategoryName = _customCategoryController.text.trim();
+
+    if (amount == null ||
+        amount <= 0 ||
+        selectedCategory == null ||
+        (isOtherCategory && customCategoryName.isEmpty)) {
+      final validationMessage = amount == null || amount <= 0
+          ? 'Please enter a valid amount'
+          : selectedCategory == null
+              ? 'Please select a category'
+              : 'Please enter a custom category name';
+
+      setState(() {
+        _isSubmitting = false;
+        _showSubmitSuccess = false;
+        _showSubmitError = true;
+        _submitStatusText = validationMessage;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            amount == null || amount <= 0
-                ? 'Please enter a valid amount'
-                : 'Please select a category',
-          ),
+          content: Text(validationMessage),
           backgroundColor: AppTheme.danger500,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -148,54 +201,66 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     }
 
     try {
-      await context.read<TransactionProvider>().addTransaction(
-        title: selectedCategory.name,
-        amount: amount,
-        date: _selectedDate,
-        categoryId: _selectedCategoryId!,
-        type: _type,
-        description: _noteController.text.isNotEmpty
-            ? _noteController.text
-            : null,
-      );
+      setState(() {
+        _isSubmitting = true;
+        _showSubmitSuccess = false;
+        _showSubmitError = false;
+        _submitStatusText = 'Saving transaction...';
+      });
+
+      slowHintTimer = Timer(const Duration(seconds: 8), () {
+        if (!mounted || !_isSubmitting) return;
+        setState(() {
+          _submitStatusText =
+              'Still saving... Please wait a moment.';
+        });
+      });
+
+      await context
+          .read<TransactionProvider>()
+          .addTransaction(
+            title: isOtherCategory ? customCategoryName : selectedCategory.name,
+            amount: amount,
+            date: _selectedDate,
+            categoryId: _selectedCategoryId!,
+            type: _type,
+            description: _noteController.text.isNotEmpty
+                ? _noteController.text
+                : null,
+          );
 
       if (!mounted) return;
-      final isIncome = _type == CategoryType.income;
-      final rootNavigator = Navigator.of(context, rootNavigator: true);
 
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              isIncome
-                  ? 'Income added successfully.'
-                  : 'Expense added successfully.',
-            ),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: isIncome
-                ? AppTheme.success500
-                : AppTheme.danger500,
-            action: SnackBarAction(
-              label: 'View Balance',
-              textColor: Colors.white,
-              onPressed: () {
-                rootNavigator.pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const HomeShell()),
-                  (_) => false,
-                );
-              },
-            ),
-            duration: const Duration(seconds: 4),
-          ),
-        );
+      setState(() {
+        _isSubmitting = false;
+        _showSubmitSuccess = true;
+        _showSubmitError = false;
+        _submitStatusText = _type == CategoryType.income
+            ? 'Income added successfully.'
+            : 'Expense added successfully.';
+      });
 
-      Navigator.pop(context);
+      await Future<void>.delayed(const Duration(milliseconds: 750));
+      if (!mounted) return;
+
+      final popped = await Navigator.of(context).maybePop(true);
+      if (!mounted) return;
+
+      if (!popped) {
+        await Navigator.of(context, rootNavigator: true).maybePop(true);
+      }
     } catch (e) {
       if (!mounted) return;
+      final message = _friendlySubmitError(e);
+      setState(() {
+        _isSubmitting = false;
+        _showSubmitSuccess = false;
+        _showSubmitError = true;
+        _submitStatusText = message;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceFirst('Bad state: ', '')),
+          content: Text(message),
           backgroundColor: AppTheme.danger500,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -203,12 +268,22 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           ),
         ),
       );
+    } finally {
+      slowHintTimer?.cancel();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final categories = context.watch<CategoryProvider>().categoriesByType(_type);
+    Category? selectedCategory;
+    try {
+      selectedCategory = categories.firstWhere((c) => c.id == _selectedCategoryId);
+    } catch (_) {
+      selectedCategory = null;
+    }
+    final showCustomCategoryInput =
+        selectedCategory != null && _isOtherCategory(selectedCategory);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -247,99 +322,124 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                 ),
               ),
 
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      // Type Toggle
-                      Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.neutral100,
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.radiusMd,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            _TypeToggle(
-                              label: 'Income',
-                              isActive: _type == CategoryType.income,
-                              color: AppTheme.success500,
-                              onTap: () => setState(() {
-                                _type = CategoryType.income;
-                                _selectedCategoryId = null;
-                              }),
-                            ),
-                            _TypeToggle(
-                              label: 'Expense',
-                              isActive: _type == CategoryType.expense,
-                              color: AppTheme.danger500,
-                              onTap: () => setState(() {
-                                _type = CategoryType.expense;
-                                _selectedCategoryId = null;
-                              }),
-                            ),
-                          ],
-                        ),
+              // Type toggle + Amount (always visible)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AppTheme.neutral200.withValues(alpha: 0.65),
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primary900.withValues(alpha: 0.06),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
                       ),
-
-                      // Amount Display
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Column(
-                          children: [
-                            Text('Amount', style: AppTheme.captionRegular),
-                            const SizedBox(height: 8),
-                            TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0.8, end: 1),
-                              duration: const Duration(milliseconds: 200),
-                              builder: (context, scale, child) {
-                                return Transform.scale(
-                                  scale: scale,
-                                  child: child,
-                                );
-                              },
-                              key: ValueKey(_amount),
-                              child: Container(
-                                constraints: const BoxConstraints(minHeight: 56),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                ),
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: RichText(
-                                    text: TextSpan(
-                                      text: _formattedAmount,
-                                      style: AppTheme.amountLarge.copyWith(
-                                        color: _type == CategoryType.income
-                                            ? AppTheme.success500
-                                            : AppTheme.danger500,
-                                      ),
-                                      children: [
-                                        TextSpan(
-                                          text: ' TND',
-                                          style: AppTheme.h2Bold.copyWith(
-                                            color: _type == CategoryType.income
-                                                ? AppTheme.success500
-                                                : AppTheme.danger500,
-                                          ),
-                                        ),
-                                      ],
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.neutral100,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                      ),
+                      child: Row(
+                        children: [
+                          _TypeToggle(
+                            label: 'Income',
+                            isActive: _type == CategoryType.income,
+                            color: AppTheme.success500,
+                            onTap: () => setState(() {
+                              _type = CategoryType.income;
+                              _selectedCategoryId = null;
+                            }),
+                          ),
+                          _TypeToggle(
+                            label: 'Expense',
+                            isActive: _type == CategoryType.expense,
+                            color: AppTheme.danger500,
+                            onTap: () => setState(() {
+                              _type = CategoryType.expense;
+                              _selectedCategoryId = null;
+                            }),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                      child: Column(
+                        children: [
+                          Text('Amount', style: AppTheme.captionRegular),
+                          const SizedBox(height: 8),
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.8, end: 1),
+                            duration: const Duration(milliseconds: 200),
+                            builder: (context, scale, child) {
+                              return Transform.scale(scale: scale, child: child);
+                            },
+                            key: ValueKey(_amount),
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 64),
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: AppTheme.neutral100,
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: RichText(
+                                  text: TextSpan(
+                                    text: _formattedAmount,
+                                    style: AppTheme.amountLarge.copyWith(
+                                      fontSize: 54,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -1.2,
+                                      color: _type == CategoryType.income
+                                          ? AppTheme.success500
+                                          : AppTheme.danger500,
                                     ),
+                                    children: [
+                                      TextSpan(
+                                        text: ' TND',
+                                        style: AppTheme.h2Bold.copyWith(
+                                          fontSize: 30,
+                                          color: _type == CategoryType.income
+                                              ? AppTheme.success500
+                                              : AppTheme.danger500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
+                    ),
+                  ],
+                ),
+              ),
 
-                      // Categories
+              // Scrollable form fields only
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Column(
@@ -347,9 +447,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                           children: [
                             Text(
                               'Select Category',
-                              style: AppTheme.bodySemiBold.copyWith(
-                                fontSize: 14,
-                              ),
+                              style: AppTheme.bodySemiBold.copyWith(fontSize: 14),
                             ),
                             const SizedBox(height: 12),
                             LayoutBuilder(
@@ -371,8 +469,12 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                                   children: categories.map((cat) {
                                     final isSelected = _selectedCategoryId == cat.id;
                                     return GestureDetector(
-                                      onTap: () =>
-                                          setState(() => _selectedCategoryId = cat.id),
+                                      onTap: () => setState(() {
+                                        _selectedCategoryId = cat.id;
+                                        if (!_isOtherCategory(cat)) {
+                                          _customCategoryController.clear();
+                                        }
+                                      }),
                                       child: AnimatedContainer(
                                         duration: const Duration(milliseconds: 200),
                                         width: tileWidth,
@@ -437,7 +539,35 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       ),
                       const SizedBox(height: 16),
 
-                      // Note input
+                      if (showCustomCategoryInput) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.neutral100,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: TextField(
+                              controller: _customCategoryController,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                hintText: 'Custom category name',
+                                prefixIcon: Icon(
+                                  Icons.category_outlined,
+                                  color: AppTheme.neutral500,
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Container(
@@ -466,8 +596,6 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                         ),
                       ),
                       const SizedBox(height: 12),
-
-                      // Date selector
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: GestureDetector(
@@ -519,7 +647,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       ),
                       const SizedBox(height: 16),
 
-                      // Keypad
+                      // Keypad (scrollable, not fixed)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: LayoutBuilder(
@@ -529,15 +657,14 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                             final itemWidth =
                                 (constraints.maxWidth - ((columns - 1) * spacing)) /
                                     columns;
-                            final itemHeight = itemWidth.clamp(56.0, 74.0);
+                            final itemHeight = itemWidth.clamp(56.0, 70.0);
                             final childAspectRatio = itemWidth / itemHeight;
 
                             return GridView.builder(
                               itemCount: _keypadValues.length,
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: columns,
                                 childAspectRatio: childAspectRatio,
                                 mainAxisSpacing: spacing,
@@ -564,29 +691,119 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                 ),
               ),
 
-              // Submit button
-              Padding(
+              // Submit (fixed)
+              Container(
+                color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _handleSubmit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _type == CategoryType.income
-                          ? AppTheme.success500
-                          : AppTheme.danger500,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: (_isSubmitting || _showSubmitSuccess)
+                            ? null
+                            : _handleSubmit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _type == CategoryType.income
+                              ? AppTheme.success500
+                              : AppTheme.danger500,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                'Add ${_type == CategoryType.income ? 'Income' : 'Expense'}',
+                                style: AppTheme.bodySemiBold.copyWith(
+                                  color: Colors.white,
+                                ),
+                              ),
                       ),
                     ),
-                    child: Text(
-                      'Add ${_type == CategoryType.income ? 'Income' : 'Expense'}',
-                      style: AppTheme.bodySemiBold.copyWith(
-                        color: Colors.white,
-                      ),
+                    const SizedBox(height: 10),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: (_isSubmitting || _showSubmitSuccess || _showSubmitError)
+                          ? Container(
+                              key: ValueKey(
+                                '${_isSubmitting ? 'saving' : _showSubmitSuccess ? 'success' : 'error'}$_submitStatusText',
+                              ),
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _showSubmitSuccess
+                                    ? AppTheme.success50
+                                    : _showSubmitError
+                                        ? AppTheme.danger50
+                                        : AppTheme.neutral100,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _showSubmitSuccess
+                                      ? AppTheme.success100
+                                      : _showSubmitError
+                                          ? AppTheme.danger100
+                                          : AppTheme.neutral200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  _isSubmitting
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : _showSubmitSuccess
+                                          ? const Icon(
+                                              Icons.check_circle,
+                                              color: AppTheme.success500,
+                                              size: 18,
+                                            )
+                                          : const Icon(
+                                              Icons.error_outline,
+                                              color: AppTheme.danger500,
+                                              size: 18,
+                                            ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _submitStatusText,
+                                      style: AppTheme.captionMedium.copyWith(
+                                        color: _showSubmitSuccess
+                                            ? AppTheme.success500
+                                            : _showSubmitError
+                                                ? AppTheme.danger500
+                                                : AppTheme.neutral700,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_showSubmitError) ...[
+                                    const SizedBox(width: 8),
+                                    TextButton(
+                                      onPressed: _isSubmitting ? null : _handleSubmit,
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],

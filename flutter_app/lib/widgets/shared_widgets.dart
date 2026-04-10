@@ -6,17 +6,24 @@ import 'package:intl/intl.dart';
 
 class TransactionTile extends StatelessWidget {
   final Transaction transaction;
+  final Map<String, Category>? categoryLookup;
   final VoidCallback? onTap;
   final VoidCallback? onDismissed;
 
   const TransactionTile({
     super.key,
     required this.transaction,
+    this.categoryLookup,
     this.onTap,
     this.onDismissed,
   });
 
   Category? get _category {
+    final provided = categoryLookup?[transaction.categoryId];
+    if (provided != null) {
+      return provided;
+    }
+
     try {
       return DefaultCategories.all.firstWhere(
         (c) => c.id == transaction.categoryId,
@@ -29,6 +36,11 @@ class TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cat = _category;
+    final categoryLabel =
+      cat?.name ??
+      (transaction.title.trim().isNotEmpty
+        ? transaction.title
+        : 'Uncategorized');
     final color = cat?.color ?? AppTheme.neutral500;
     final icon = cat?.icon ?? Icons.receipt;
     final amountColor = transaction.isIncome
@@ -77,7 +89,7 @@ class TransactionTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${cat?.name ?? transaction.categoryId} • ${_formatDate(transaction.date)}',
+                    '$categoryLabel • ${_formatDate(transaction.date)}',
                     style: AppTheme.smallMedium.copyWith(
                       color: AppTheme.neutral500,
                       fontSize: 12,

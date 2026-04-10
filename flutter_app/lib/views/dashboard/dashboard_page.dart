@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/category_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../models/transaction_model.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/shared_widgets.dart';
 import '../../models/category_model.dart';
@@ -38,9 +40,19 @@ class _DashboardPageState extends State<DashboardPage>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TransactionProvider>(
-      builder: (context, txnProvider, _) {
+    return Consumer2<TransactionProvider, CategoryProvider>(
+      builder: (context, txnProvider, categoryProvider, _) {
         final recentTxns = txnProvider.transactions.take(5).toList();
+        final categoryLookup = {
+          for (final c in categoryProvider.categoriesByType(
+            CategoryType.expense,
+          ))
+            c.id: c,
+          for (final c in categoryProvider.categoriesByType(
+            CategoryType.income,
+          ))
+            c.id: c,
+        };
         final authProvider = context.watch<AuthProvider>();
         final user = authProvider.currentUser;
         final userName = user?.fullName ?? 'User';
@@ -275,7 +287,12 @@ class _DashboardPageState extends State<DashboardPage>
                       },
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: TransactionTile(transaction: recentTxns[index]),
+                        child: TransactionTile(
+                          transaction: recentTxns[index],
+                          categoryLookup: categoryLookup,
+                          onTap: () =>
+                              _showTransactionDetails(context, recentTxns[index]),
+                        ),
                       ),
                     );
                   }, childCount: recentTxns.length),
@@ -287,8 +304,11 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  void _showAddTransaction(BuildContext context, {required bool isIncome}) {
-    Navigator.push(
+  Future<void> _showAddTransaction(
+    BuildContext context, {
+    required bool isIncome,
+  }) async {
+    final saved = await Navigator.push<bool>(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
@@ -311,6 +331,95 @@ class _DashboardPageState extends State<DashboardPage>
         },
         transitionDuration: const Duration(milliseconds: 400),
       ),
+    );
+
+    if (!context.mounted || saved != true) return;
+
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            isIncome
+                ? 'Income added successfully.'
+                : 'Expense added successfully.',
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: isIncome
+              ? AppTheme.success500
+              : AppTheme.danger500,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+  }
+
+  void _showTransactionDetails(BuildContext context, Transaction transaction) {
+    final note = transaction.description?.trim();
+    final noteText = (note == null || note.isEmpty) ? 'No note.' : note;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Transaction details', style: AppTheme.h3SemiBold),
+                const SizedBox(height: 14),
+                Text(
+                  transaction.title,
+                  style: AppTheme.bodySemiBold.copyWith(fontSize: 16),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${transaction.isIncome ? '+' : '-'}${transaction.amount.toStringAsFixed(2)} TND',
+                  style: AppTheme.h3SemiBold.copyWith(
+                    color: transaction.isIncome
+                        ? AppTheme.success500
+                        : AppTheme.danger500,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  transaction.isIncome ? 'Type: Income' : 'Type: Expense',
+                  style: AppTheme.captionMedium.copyWith(
+                    color: AppTheme.neutral700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Note',
+                  style: AppTheme.captionMedium.copyWith(
+                    color: AppTheme.neutral700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.neutral100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    noteText,
+                    style: AppTheme.bodyRegular.copyWith(
+                      color: AppTheme.neutral900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/category_provider.dart';
+import '../../providers/app_settings_provider.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_page.dart';
 import 'budget_goal_page.dart';
@@ -18,13 +19,17 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
-  bool _darkMode = false;
   late AnimationController _animController;
 
   static const Map<String, String> _currencyOptions = {
     'TND': 'TND - Tunisian Dinar',
     'USD': 'USD - US Dollar',
     'EUR': 'EUR - Euro',
+  };
+
+  static const Map<String, String> _languageOptions = {
+    'en': 'English',
+    'fr': 'Français',
   };
 
   @override
@@ -48,6 +53,8 @@ class _ProfilePageState extends State<ProfilePage>
     return _currencyOptions[code] ?? code;
   }
 
+  String _languageLabel(String code) => _languageOptions[code] ?? code;
+
   void _showInfoSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -64,6 +71,9 @@ class _ProfilePageState extends State<ProfilePage>
     );
     final emailController = TextEditingController(
       text: authProvider.currentUser?.email ?? '',
+    );
+    final avatarController = TextEditingController(
+      text: authProvider.currentUser?.avatarUrl ?? '',
     );
 
     final payload = await showDialog<Map<String, String>>(
@@ -84,6 +94,14 @@ class _ProfilePageState extends State<ProfilePage>
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(hintText: 'Email address'),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: avatarController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  hintText: 'Photo URL (optional)',
+                ),
+              ),
             ],
           ),
           actions: [
@@ -96,6 +114,7 @@ class _ProfilePageState extends State<ProfilePage>
                 Navigator.pop(dialogContext, {
                   'fullName': nameController.text.trim(),
                   'email': emailController.text.trim(),
+                  'avatarUrl': avatarController.text.trim(),
                 });
               },
               child: const Text('Save'),
@@ -110,6 +129,7 @@ class _ProfilePageState extends State<ProfilePage>
     final success = await authProvider.updateProfile(
       fullName: payload['fullName'],
       email: payload['email'],
+      avatarUrl: payload['avatarUrl'],
     );
 
     if (!mounted) return;
@@ -120,6 +140,44 @@ class _ProfilePageState extends State<ProfilePage>
       _showInfoSnackBar(authProvider.error ?? 'Failed to update profile.');
       authProvider.clearError();
     }
+  }
+
+  Future<void> _showLanguagePicker(AppSettingsProvider settingsProvider) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Choose language', style: AppTheme.h3SemiBold),
+                const SizedBox(height: 8),
+                ..._languageOptions.entries.map(
+                  (entry) => ListTile(
+                    title: Text(entry.value),
+                    trailing: settingsProvider.languageCode == entry.key
+                        ? const Icon(Icons.check, color: AppTheme.success500)
+                        : null,
+                    onTap: () => Navigator.pop(sheetContext, entry.key),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || selected == null) return;
+    await settingsProvider.setLanguage(selected);
+    if (!mounted) return;
+    _showInfoSnackBar('Language updated to ${_languageLabel(selected)}.');
   }
 
   Future<void> _showCurrencyPicker(AuthProvider authProvider) async {
@@ -168,7 +226,11 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
-  void _handleMenuTap(_ProfileAction action, AuthProvider authProvider) {
+  void _handleMenuTap(
+    _ProfileAction action,
+    AuthProvider authProvider,
+    AppSettingsProvider settingsProvider,
+  ) {
     switch (action) {
       case _ProfileAction.account:
         _showEditProfileDialog(authProvider);
@@ -180,6 +242,10 @@ class _ProfilePageState extends State<ProfilePage>
         _showCurrencyPicker(authProvider);
         return;
       case _ProfileAction.darkMode:
+        settingsProvider.toggleDarkMode();
+        return;
+      case _ProfileAction.language:
+        _showLanguagePicker(settingsProvider);
         return;
       case _ProfileAction.budgetGoals:
         Navigator.of(
@@ -201,12 +267,14 @@ class _ProfilePageState extends State<ProfilePage>
     final txnProvider = context.watch<TransactionProvider>();
     final budgetProvider = context.watch<BudgetProvider>();
     final categoryProvider = context.watch<CategoryProvider>();
+    final settingsProvider = context.watch<AppSettingsProvider>();
 
     final user = authProvider.currentUser;
     final userName = user?.fullName ?? 'User';
     final userEmail = user?.email ?? '';
     final userInitials = user?.initials ?? '?';
     final userCurrency = _currencyLabel(user?.currency);
+    final userAvatarUrl = user?.avatarUrl?.trim();
 
     final allCategories = [
       ...categoryProvider.categoriesByType(CategoryType.expense),
@@ -232,6 +300,12 @@ class _ProfilePageState extends State<ProfilePage>
         icon: Icons.language,
         name: 'Currency',
         subtitle: userCurrency,
+      ),
+      _MenuItem(
+        action: _ProfileAction.language,
+        icon: Icons.translate,
+        name: 'Language',
+        subtitle: _languageLabel(settingsProvider.languageCode),
       ),
       _MenuItem(
         action: _ProfileAction.budgetGoals,
@@ -312,22 +386,19 @@ class _ProfilePageState extends State<ProfilePage>
                       Container(
                         width: 96,
                         height: 96,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [AppTheme.success500, Color(0xFF2ECC71)],
-                          ),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            userInitials,
-                            style: AppTheme.h1Bold.copyWith(
-                              color: Colors.white,
-                              fontSize: 32,
-                            ),
-                          ),
+                        decoration: const BoxDecoration(shape: BoxShape.circle),
+                        child: ClipOval(
+                          child: userAvatarUrl != null && userAvatarUrl.isNotEmpty
+                              ? Image.network(
+                                  userAvatarUrl,
+                                  width: 96,
+                                  height: 96,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => _AvatarFallback(
+                                    initials: userInitials,
+                                  ),
+                                )
+                              : _AvatarFallback(initials: userInitials),
                         ),
                       ),
                       Positioned(
@@ -445,8 +516,11 @@ class _ProfilePageState extends State<ProfilePage>
                           child: InkWell(
                             onTap: item.isToggle
                                 ? null
-                                : () =>
-                                      _handleMenuTap(item.action, authProvider),
+                                : () => _handleMenuTap(
+                                  item.action,
+                                  authProvider,
+                                  settingsProvider,
+                                ),
                             borderRadius: BorderRadius.vertical(
                               top: index == 0
                                   ? const Radius.circular(24)
@@ -500,9 +574,9 @@ class _ProfilePageState extends State<ProfilePage>
                                   ),
                                   if (item.isToggle)
                                     Switch(
-                                      value: _darkMode,
+                                      value: settingsProvider.isDarkMode,
                                       onChanged: (v) =>
-                                          setState(() => _darkMode = v),
+                                          settingsProvider.setDarkMode(v),
                                       activeThumbColor: AppTheme.success500,
                                     )
                                   else
@@ -607,6 +681,37 @@ class _ProfileStat extends StatelessWidget {
   }
 }
 
+class _AvatarFallback extends StatelessWidget {
+  final String initials;
+
+  const _AvatarFallback({required this.initials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.success500, Color(0xFF2ECC71)],
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: AppTheme.h1Bold.copyWith(
+            color: Colors.white,
+            fontSize: 32,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MenuItem {
   final _ProfileAction action;
   final IconData icon;
@@ -627,6 +732,7 @@ enum _ProfileAction {
   account,
   notifications,
   currency,
+  language,
   budgetGoals,
   darkMode,
   privacy,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,7 @@ import 'providers/auth_provider.dart';
 import 'providers/transaction_provider.dart';
 import 'providers/budget_provider.dart';
 import 'providers/category_provider.dart';
+import 'providers/app_settings_provider.dart';
 import 'theme/app_theme.dart';
 import 'views/auth/login_page.dart';
 import 'views/dashboard/home_shell.dart';
@@ -36,12 +39,27 @@ class GestionBudgetaireApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => BudgetProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = AppSettingsProvider();
+            unawaited(provider.load());
+            return provider;
+          },
+        ),
       ],
-      child: MaterialApp(
-        title: 'DEVMOB – GestionBudgetaire',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const _AuthGate(),
+      child: Consumer<AppSettingsProvider>(
+        builder: (context, settings, _) {
+          return MaterialApp(
+            title: 'DEVMOB – GestionBudgetaire',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: settings.themeMode,
+            locale: settings.locale,
+            supportedLocales: const [Locale('en'), Locale('fr')],
+            home: const _AuthGate(),
+          );
+        },
       ),
     );
   }
@@ -59,6 +77,7 @@ class _AuthGate extends StatefulWidget {
 class _AuthGateState extends State<_AuthGate> {
   bool _isLoadingUserData = false;
   String? _loadedForUserId;
+  String? _scheduledLoadForUserId;
 
   @override
   void initState() {
@@ -95,6 +114,19 @@ class _AuthGateState extends State<_AuthGate> {
     } finally {
       _isLoadingUserData = false;
     }
+  }
+
+  void _scheduleUserDataLoad(String userId) {
+    if (_isLoadingUserData) return;
+    if (_loadedForUserId == userId) return;
+    if (_scheduledLoadForUserId == userId) return;
+
+    _scheduledLoadForUserId = userId;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _scheduledLoadForUserId = null;
+      await _loadUserDataIfNeeded(userId);
+    });
   }
 
   @override
@@ -138,7 +170,7 @@ class _AuthGateState extends State<_AuthGate> {
           // Load user data from Firestore
           final userId = auth.currentUser?.id;
           if (userId != null) {
-            _loadUserDataIfNeeded(userId);
+            _scheduleUserDataLoad(userId);
           }
           return const HomeShell();
         }

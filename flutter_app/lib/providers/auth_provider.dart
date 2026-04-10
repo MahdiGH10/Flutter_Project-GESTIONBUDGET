@@ -96,6 +96,7 @@ class AuthProvider extends ChangeNotifier {
     String? fullName,
     String? email,
     String? currency,
+    String? avatarUrl,
   }) async {
     _isLoading = true;
     _error = null;
@@ -106,6 +107,7 @@ class AuthProvider extends ChangeNotifier {
         fullName: fullName,
         email: email,
         currency: currency,
+        avatarUrl: avatarUrl,
       );
       _isLoading = false;
       notifyListeners();

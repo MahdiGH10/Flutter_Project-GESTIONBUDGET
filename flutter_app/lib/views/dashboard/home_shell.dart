@@ -11,7 +11,14 @@ import '../settings/profile_page.dart';
 import '../../widgets/speed_dial_fab.dart';
 
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
+  final String? successMessage;
+  final bool? successIsIncome;
+
+  const HomeShell({
+    super.key,
+    this.successMessage,
+    this.successIsIncome,
+  });
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -31,20 +38,56 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
       ReportPage(),
       ProfilePage(),
     ];
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.successMessage == null) return;
+
+      final isIncome = widget.successIsIncome ?? false;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(widget.successMessage!),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: isIncome
+                ? AppTheme.success500
+                : AppTheme.danger500,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+    });
   }
 
   void _onTabTapped(int index) {
     setState(() => _currentIndex = index);
   }
 
-  void _openAddTransaction({required bool isIncome}) {
-    Navigator.of(context).push(
+  Future<void> _openAddTransaction({required bool isIncome}) async {
+    final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => AddTransactionPage(
           initialType: isIncome ? CategoryType.income : CategoryType.expense,
         ),
       ),
     );
+
+    if (!mounted || saved != true) return;
+
+    setState(() => _currentIndex = 0);
+
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            isIncome ? 'Income added successfully.' : 'Expense added successfully.',
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: isIncome ? AppTheme.success500 : AppTheme.danger500,
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 
   void _openBudgetGoals() {

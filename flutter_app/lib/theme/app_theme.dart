@@ -281,4 +281,115 @@ class AppTheme {
       ),
     ),
   );
+
+  static ThemeData get darkTheme => ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    scaffoldBackgroundColor: const Color(0xFF101820),
+    colorScheme: const ColorScheme.dark(
+      primary: success500,
+      secondary: success500,
+      error: danger500,
+      surface: Color(0xFF17222C),
+      onPrimary: neutral0,
+      onSecondary: neutral0,
+      onError: neutral0,
+      onSurface: neutral0,
+    ),
+    textTheme: GoogleFonts.urbanistTextTheme(ThemeData.dark().textTheme),
+    appBarTheme: AppBarTheme(
+      backgroundColor: const Color(0xFF17222C),
+      foregroundColor: neutral0,
+      elevation: 0,
+      centerTitle: true,
+      titleTextStyle: GoogleFonts.urbanist(
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        color: neutral0,
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: success500,
+        foregroundColor: neutral0,
+        minimumSize: const Size(double.infinity, 56),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusMd),
+        ),
+        textStyle: GoogleFonts.urbanist(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+        elevation: 0,
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: neutral0,
+        minimumSize: const Size(double.infinity, 56),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusMd),
+        ),
+        side: const BorderSide(color: Color(0xFF26323C), width: 2),
+        textStyle: GoogleFonts.urbanist(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFF17222C),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(radiusMd),
+        borderSide: const BorderSide(color: Color(0xFF26323C), width: 2),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(radiusMd),
+        borderSide: const BorderSide(color: Color(0xFF26323C), width: 2),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(radiusMd),
+        borderSide: const BorderSide(color: success500, width: 2),
+      ),
+      hintStyle: GoogleFonts.urbanist(color: neutral400, fontSize: 16),
+      labelStyle: GoogleFonts.urbanist(
+        color: neutral300,
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+    cardTheme: CardThemeData(
+      color: const Color(0xFF17222C),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radiusMd),
+      ),
+      margin: EdgeInsets.zero,
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: const Color(0xFF17222C),
+      selectedItemColor: success500,
+      unselectedItemColor: neutral400,
+      type: BottomNavigationBarType.fixed,
+      selectedLabelStyle: GoogleFonts.urbanist(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+      unselectedLabelStyle: GoogleFonts.urbanist(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+      elevation: 0,
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: success500,
+      foregroundColor: neutral0,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radiusXl),
+      ),
+    ),
+  );
 }

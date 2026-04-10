@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/category_provider.dart';
+import '../../utils/password_validator.dart';
 import '../../theme/app_theme.dart';
 import '../dashboard/home_shell.dart';
 
@@ -19,6 +20,7 @@ class _RegisterPageState extends State<RegisterPage>
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   String _selectedCurrency = 'TND - Tunisian Dinar';
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -45,6 +47,7 @@ class _RegisterPageState extends State<RegisterPage>
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -52,11 +55,55 @@ class _RegisterPageState extends State<RegisterPage>
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
 
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Veuillez remplir tous les champs'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!PasswordValidator.isValidEmail(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Veuillez entrer une adresse email valide'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Les mots de passe ne correspondent pas'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final passwordError = PasswordValidator.validateStrongPassword(password);
+    if (passwordError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(passwordError),
           backgroundColor: Colors.red.shade400,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -296,6 +343,29 @@ class _RegisterPageState extends State<RegisterPage>
                         decoration: _fieldDecoration(
                           hint: '••••••••',
                           icon: Icons.lock_outline,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Confirm Password',
+                        style: AppTheme.captionMedium.copyWith(
+                          color: AppTheme.neutral900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _confirmPasswordController,
+                        obscureText: true,
+                        decoration: _fieldDecoration(
+                          hint: '••••••••',
+                          icon: Icons.lock_reset_outlined,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Use 8+ characters with upper, lower, number and symbol.',
+                        style: AppTheme.smallMedium.copyWith(
+                          color: AppTheme.neutral500,
                         ),
                       ),
                       const SizedBox(height: 18),
